@@ -333,6 +333,17 @@ app.get('/videos/:id', optionalAuth, wrap(async (req, res) => {
   if (v.visibility === 'private' && v.uploaderId !== req.user?.uid) {
     return res.status(404).json({ error: 'Not found' });
   }
+  // Self-heal: if Firestore still says processing, re-check Cloudflare
+  if (v.status === 'processing') {
+    try {
+      const cf = await getCFVideo(v.cloudflareUid || doc.id);
+      if (cf.readyToStream) {
+        const patch = { status: 'live', thumbnailUrl: cf.thumbnail || v.thumbnailUrl || null, duration: cf.duration || v.duration || 0 };
+        await doc.ref.update(patch);
+        Object.assign(v, patch);
+      }
+    } catch {}
+  }
   doc.ref.update({ views: admin.firestore.FieldValue.increment(1) }).catch(() => {});
   let liked = false, subscribed = false;
   if (req.user) {
