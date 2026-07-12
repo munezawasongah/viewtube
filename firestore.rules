@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // All reads/writes go through the ViewTube API (Firebase Admin SDK),
+    // which bypasses these rules. Client SDK access is fully locked down.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
