@@ -11,6 +11,7 @@
 
     :root {
       --bg:        #0f0f0f;
+      --nav-bg:    rgba(15,15,15,0.92);
       --surface:   #272727;
       --card:      #1f1f1f;
       --border:    #303030;
@@ -34,7 +35,7 @@
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
       height: 60px; display: flex; align-items: center; gap: 16px;
       padding: 0 20px;
-      background: rgba(10,10,15,0.92);
+      background: var(--nav-bg);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
     }
@@ -325,6 +326,19 @@
     @keyframes reactpop { 0%{transform:scale(1)} 40%{transform:scale(1.35) rotate(-6deg)} 100%{transform:scale(1)} }
     /* watch progress on cards */
     .watch-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: #f0b90b; border-radius: 0 2px 2px 0; }
+    /* ─── LIGHT MODE ─── */
+    body.light { --bg: #ffffff; --nav-bg: rgba(255,255,255,0.95); --surface: #f2f2f2; --card: #ffffff; --border: #e5e5e5; --text: #0f0f0f; --muted: #606060; --accent: #065fd4; }
+    body.light .btn-primary { background: #0f0f0f; color: #fff; }
+    body.light .btn-primary:hover { background: #272727; }
+    body.light .cat-pill.active { background: #0f0f0f; color: #fff; border-color: #0f0f0f; }
+    body.light .cat-pill:hover { background: #e5e5e5; color: #0f0f0f; }
+    body.light .action-btn.liked { background: #0f0f0f; color: #fff; border-color: #0f0f0f; }
+    body.light .react-btn:hover { background: #e5e5e5; }
+    body.light .btn-subscribe:hover { background: #272727; }
+    body.light .msg.mine { background: #065fd4; color: #fff; }
+    body.light .chat-item:hover, body.light .chat-item.active { background: #f2f2f2; }
+    body.light #toast { box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    body.light .modal { box-shadow: 0 12px 48px rgba(0,0,0,0.2); }
   </style>
 </head>
 <body>
@@ -343,6 +357,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Upload
     </button>
+    <button class="btn btn-ghost" id="theme-btn" onclick="toggleTheme()" title="Switch theme" style="padding:8px 12px;font-size:16px;">🌙</button>
     <button class="btn btn-primary" id="signin-btn" onclick="openModal('auth-modal')">Sign In</button>
     <div class="avatar" id="nav-avatar" style="display:none;" onclick="toggleUserMenu()" title="Account">U</div>
     <div id="user-menu" style="display:none; position:absolute; top:56px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:8px; z-index:300; min-width:180px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
@@ -2030,8 +2045,21 @@ function renderContinueRow() {
   }).join('');
 }
 
+// ─── Theme (dark / light) ───────────────────────────────────────
+function applyTheme(theme) {
+  document.body.classList.toggle('light', theme === 'light');
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = theme === 'light' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const next = document.body.classList.contains('light') ? 'dark' : 'light';
+  try { localStorage.setItem('vt_theme', next); } catch {}
+  applyTheme(next);
+}
+
 // ─── Init ───────────────────────────────────────────────────────
 (function init() {
+  try { applyTheme(localStorage.getItem('vt_theme') || 'dark'); } catch {}
   if (API_BASE_URL.includes('YOUR-API') || FIREBASE_CONFIG.apiKey.includes('YOUR_')) {
     document.getElementById('home-error').innerHTML =
       '<div class="error-banner"><strong>Setup required:</strong> open index.html and set API_BASE_URL and FIREBASE_CONFIG at the top of the &lt;script&gt; block, then redeploy.</div>';
