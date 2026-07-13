@@ -285,6 +285,35 @@
     .auth-error { color: var(--accent2); font-size: 13px; margin-bottom: 12px; display: none; }
     .video-thumb img.real-thumb { position: absolute; inset: 0; }
     #toast .toast-dot.err { background: var(--accent2); }
+    /* chat */
+    .chat-layout { display: grid; grid-template-columns: 300px 1fr; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; height: calc(100vh - 140px); background: var(--card); }
+    .chat-list { border-right: 1px solid var(--border); overflow-y: auto; }
+    .chat-item { padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .15s; }
+    .chat-item:hover, .chat-item.active { background: var(--surface); }
+    .chat-item .ci-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+    .chat-item .ci-last { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-thread { display: flex; flex-direction: column; }
+    .chat-header { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 15px; }
+    .chat-msgs { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 8px; }
+    .msg { max-width: 70%; padding: 9px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+    .msg.mine { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.theirs { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg .m-time { display: block; font-size: 10px; opacity: .65; margin-top: 3px; }
+    .chat-input-row { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--border); }
+    .chat-input-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 40px; padding: 10px 16px; color: var(--text); font-size: 14px; outline: none; font-family: var(--font-body); }
+    .chat-input-row input:focus { border-color: var(--accent); }
+    .chat-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 14px; }
+    @media (max-width: 900px) { .chat-layout { grid-template-columns: 1fr; } .chat-list { display: none; } .chat-list.mobile-show { display: block; } }
+    /* threaded comments */
+    .comment-replies { margin-left: 48px; margin-top: 10px; }
+    .c-actions button { background: none; border: none; color: var(--muted); font-size: 12px; cursor: pointer; padding: 0; font-family: var(--font-body); }
+    .c-actions button:hover, .c-actions button.liked { color: var(--accent); }
+    .reply-box { display: flex; gap: 8px; margin: 8px 0 4px; }
+    .reply-box input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; color: var(--text); font-size: 13px; outline: none; font-family: var(--font-body); }
+    /* live */
+    .live-cred { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-family: monospace; font-size: 13px; word-break: break-all; margin-bottom: 12px; position: relative; }
+    .live-cred .copy-btn { position: absolute; top: 8px; right: 8px; }
+    .live-state { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -344,6 +373,14 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       History
     </a>
+    <a class="sidebar-item" id="nav-messages" onclick="requireAuth(() => showPage('messages'))">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Messages
+    </a>
+    <a class="sidebar-item" id="nav-golive" onclick="requireAuth(() => showPage('golive'))">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>
+      Go Live
+    </a>
   </div>
   <hr class="sidebar-sep">
   <div class="sidebar-section">
@@ -382,6 +419,10 @@
       <div class="cat-pill" onclick="setCategory(this,'Food')">🍕 Food</div>
     </div>
     <div id="home-error"></div>
+    <div id="live-row-wrap" style="display:none;">
+      <div class="section-title"><span class="live-badge"><span class="live-dot"></span> LIVE</span> Live Now</div>
+      <div class="video-grid" id="live-grid" style="margin-bottom:32px;"></div>
+    </div>
     <div class="section-title">Latest Videos</div>
     <div class="video-grid" id="home-grid"></div>
     <div class="load-more-wrap"><button class="btn btn-ghost" id="load-more-btn" style="display:none;" onclick="loadFeed(false)">Load More</button></div>
@@ -439,6 +480,7 @@
               <div class="ch-name" id="player-ch-name"></div>
               <div class="ch-subs" id="player-ch-subs"></div>
             </div>
+            <button class="btn btn-ghost" id="msg-creator-btn" onclick="messageCreator()" style="margin-right:6px;">Message</button>
             <button class="btn-subscribe" id="subscribe-btn" onclick="toggleSubscribe()">Subscribe</button>
           </div>
           <div class="description-box" id="player-desc"></div>
@@ -475,7 +517,7 @@
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <h2>Drag &amp; drop your video</h2>
-          <p>MP4, MOV, AVI, MKV supported · Up to 200MB per upload</p>
+          <p>MP4, MOV, AVI, MKV · Max 5 minutes · Up to 200MB</p>
           <button class="btn btn-primary" onclick="event.stopPropagation(); document.getElementById('file-input').click()">Select File</button>
         </div>
         <input type="file" id="file-input" accept="video/*" style="display:none" onchange="fileSelected(this)" />
@@ -573,6 +615,76 @@
     </div>
   </section>
 
+  <!-- MESSAGES -->
+  <section class="page" id="page-messages">
+    <div class="section-title" style="font-size:24px; margin-bottom:16px;">Messages</div>
+    <div class="chat-layout">
+      <div class="chat-list" id="chat-list"><div class="chat-empty">No conversations yet</div></div>
+      <div class="chat-thread">
+        <div class="chat-header" id="chat-header">Select a conversation</div>
+        <div class="chat-msgs" id="chat-msgs"><div class="chat-empty">Messages are private between you and the other person.</div></div>
+        <div class="chat-input-row" id="chat-input-row" style="display:none;">
+          <input type="text" id="chat-input" placeholder="Write a message..." maxlength="2000" onkeydown="if(event.key==='Enter')sendMessage()" />
+          <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GO LIVE -->
+  <section class="page" id="page-golive">
+    <div class="upload-container">
+      <h1 style="font-family:var(--font-head);font-size:28px;margin-bottom:8px;">Go Live</h1>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:24px;">Stream with OBS Studio or any RTMP app (e.g. Larix on mobile). Start here, paste the credentials into your software, and hit Start Streaming there.</p>
+      <div id="golive-step-1">
+        <div class="form-group">
+          <label class="form-label">Stream Title</label>
+          <input type="text" class="form-input" id="live-title-input" maxlength="120" placeholder="What are you streaming?" />
+        </div>
+        <button class="btn btn-primary" id="golive-btn" style="padding:12px 28px;" onclick="startLive()">Create Stream</button>
+      </div>
+      <div id="golive-step-2" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Server (RTMPS URL) — paste into OBS → Settings → Stream → Server</label>
+          <div class="live-cred" id="live-rtmps">—<button class="btn btn-ghost copy-btn" style="padding:3px 10px;font-size:11px;" onclick="copyText('live-rtmps')">Copy</button></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stream Key — keep this secret</label>
+          <div class="live-cred" id="live-key">—<button class="btn btn-ghost copy-btn" style="padding:3px 10px;font-size:11px;" onclick="copyText('live-key')">Copy</button></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:20px;margin:20px 0;">
+          <span class="live-state" id="live-state"><span class="status-pill status-processing">Waiting for your stream…</span></span>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <button class="btn btn-ghost" onclick="openLiveWatch(liveSession.id)" id="live-view-btn" style="display:none;">View Stream</button>
+          <button class="btn btn-primary" style="background:var(--accent2);" onclick="stopLive()">End Stream</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE WATCH -->
+  <section class="page" id="page-livewatch">
+    <div class="player-layout">
+      <div class="player-main">
+        <div class="player-wrap" id="live-player-wrap"></div>
+        <div class="player-info">
+          <div style="margin-bottom:8px;"><span class="live-badge"><span class="live-dot"></span> LIVE</span></div>
+          <h1 class="player-title" id="live-watch-title"></h1>
+          <div class="channel-row">
+            <div class="ch-avatar" id="live-ch-avatar">C</div>
+            <div class="ch-info">
+              <div class="ch-name" id="live-ch-name"></div>
+              <div class="ch-subs">Streaming now</div>
+            </div>
+            <button class="btn btn-ghost" onclick="messageStreamer()">Message</button>
+          </div>
+        </div>
+      </div>
+      <div></div>
+    </div>
+  </section>
+
 </main>
 
 <!-- AUTH MODAL -->
@@ -639,6 +751,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://embed.videodelivery.net/embed/sdk.latest.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — the only two things you must edit before deploying
@@ -665,6 +778,19 @@ let feedCategory = 'All';
 let selectedTip = null;
 let signUpMode = false;
 let uploadState = { uid: null, uploading: false, done: false };
+let viewTracked = false;
+let streamPlayer = null;
+let chatPoll = null, livePoll = null;
+let activeChatUid = null;
+let liveSession = null;
+let replyTarget = null;
+const DEVICE_ID = (() => {
+  try {
+    let id = localStorage.getItem('vt_device');
+    if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9-]/g,''); localStorage.setItem('vt_device', id); }
+    return id;
+  } catch { return 'anon-' + Math.random().toString(36).slice(2, 20); }
+})();
 
 // ─── Utilities ──────────────────────────────────────────────────
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
@@ -793,6 +919,10 @@ function showPage(name) {
   document.getElementById('nav-' + name)?.classList.add('active');
   window.scrollTo(0, 0);
   if (name !== 'player') stopPlayback();
+  if (name !== 'livewatch') document.getElementById('live-player-wrap').innerHTML = '';
+  if (name !== 'messages' && chatPoll) { clearInterval(chatPoll); chatPoll = null; }
+  if (name !== 'golive' && livePoll) { clearInterval(livePoll); livePoll = null; }
+  if (name === 'messages') loadConversations();
   if (name === 'trending') loadTrending();
   if (name === 'subscriptions') loadSubscriptions();
   if (name === 'channel') loadChannel(currentUser?.uid);
@@ -882,7 +1012,7 @@ async function loadSubscriptions() {
 }
 
 // ─── Player ─────────────────────────────────────────────────────
-function stopPlayback() { document.getElementById('player-wrap').innerHTML = ''; }
+function stopPlayback() { document.getElementById('player-wrap').innerHTML = ''; streamPlayer = null; viewTracked = false; }
 
 async function openVideo(id) {
   showPage('player');
@@ -895,8 +1025,22 @@ async function openVideo(id) {
     saveHistory(v);
 
     if (v.status === 'live') {
-      wrap.innerHTML = `<iframe src="https://iframe.videodelivery.net/${encodeURIComponent(v.cloudflareUid || v.id)}" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>`;
+      const vid = encodeURIComponent(v.cloudflareUid || v.id);
+      wrap.innerHTML = `<iframe id="stream-frame" src="https://iframe.videodelivery.net/${vid}?autoplay=true" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>`;
       document.getElementById('player-status').style.display = 'none';
+      // Honest view counting: 1 device = 1 view, only after 10s of real playback
+      viewTracked = false;
+      try {
+        streamPlayer = Stream(document.getElementById('stream-frame'));
+        streamPlayer.addEventListener('timeupdate', () => {
+          if (!viewTracked && streamPlayer.currentTime >= 10) {
+            viewTracked = true;
+            api(`/videos/${encodeURIComponent(v.id)}/view`, { method: 'POST', body: { deviceId: DEVICE_ID } })
+              .then(r => { if (r.counted) { currentVideo.views = (currentVideo.views || 0) + 1; document.getElementById('player-views').textContent = fmtNum(currentVideo.views) + ' views'; } })
+              .catch(() => {});
+          }
+        });
+      } catch (e) { console.warn('Player SDK unavailable:', e); }
     } else {
       wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px;">This video is still processing — check back shortly.</div>';
       document.getElementById('player-status').style.display = '';
@@ -966,34 +1110,62 @@ function shareVideo() {
 async function loadComments(videoId) {
   const list = document.getElementById('comments-list');
   list.innerHTML = '';
+  replyTarget = null;
   try {
     const { comments } = await api(`/videos/${encodeURIComponent(videoId)}/comments`);
     document.getElementById('comments-count').textContent = `Comments (${comments.length})`;
-    list.innerHTML = comments.map(c => `
-      <div class="comment">
+    const roots = comments.filter(c => !c.parentId);
+    const repliesByParent = {};
+    comments.filter(c => c.parentId).forEach(c => (repliesByParent[c.parentId] = repliesByParent[c.parentId] || []).push(c));
+    Object.values(repliesByParent).forEach(arr => arr.sort((a,b) => (a.createdAt?.seconds ?? a.createdAt?._seconds ?? 0) - (b.createdAt?.seconds ?? b.createdAt?._seconds ?? 0)));
+    const commentHTML = (c, isReply) => `
+      <div class="comment" id="comment-${esc(c.id)}">
         <div class="c-avatar">${esc((c.displayName || '?')[0].toUpperCase())}</div>
         <div class="c-body">
           <div class="c-header"><strong>${esc(c.displayName)}</strong><span>${timeAgo(c.createdAt)}</span></div>
           <div class="c-text">${esc(c.text)}</div>
+          <div class="c-actions">
+            <button class="${c.liked ? 'liked' : ''}" onclick="likeComment('${esc(c.id)}', this)">👍 <span>${fmtNum(c.likes)}</span></button>
+            ${isReply ? '' : `<button onclick="showReplyBox('${esc(c.id)}', '${esc(c.displayName)}')">Reply</button>`}
+          </div>
+          <div id="replybox-${esc(c.id)}"></div>
+          ${isReply ? '' : `<div class="comment-replies">${(repliesByParent[c.id] || []).map(r => commentHTML(r, true)).join('')}</div>`}
         </div>
-      </div>`).join('');
+      </div>`;
+    list.innerHTML = roots.map(c => commentHTML(c, false)).join('');
   } catch { /* non-fatal */ }
 }
 
-function submitComment(e, el) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    const text = el.value.trim();
-    if (!text || !currentVideo) return;
-    requireAuth(async () => {
-      try {
-        await api(`/videos/${encodeURIComponent(currentVideo.id)}/comments`, { method: 'POST', body: { text }, authRequired: true });
-        el.value = '';
-        loadComments(currentVideo.id);
-        showToast('Comment posted');
-      } catch (err) { showToast(err.message, true); }
-    });
-  }
+function showReplyBox(commentId, name) {
+  requireAuth(() => {
+    document.querySelectorAll('[id^=replybox-]').forEach(el => el.innerHTML = '');
+    const box = document.getElementById('replybox-' + commentId);
+    box.innerHTML = `<div class="reply-box">
+      <input type="text" maxlength="2000" placeholder="Reply to ${esc(name)}..." onkeydown="if(event.key==='Enter')postReply('${esc(commentId)}', this)" />
+      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;" onclick="postReply('${esc(commentId)}', this.previousElementSibling)">Reply</button>
+    </div>`;
+    box.querySelector('input').focus();
+  });
+}
+
+async function postReply(parentId, input) {
+  const text = input.value.trim();
+  if (!text || !currentVideo) return;
+  try {
+    await api(`/videos/${encodeURIComponent(currentVideo.id)}/comments`, { method: 'POST', body: { text, parentId }, authRequired: true });
+    loadComments(currentVideo.id);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function likeComment(id, btn) {
+  requireAuth(async () => {
+    try {
+      const { liked } = await api(`/comments/${encodeURIComponent(id)}/like`, { method: 'POST', authRequired: true });
+      btn.classList.toggle('liked', liked);
+      const span = btn.querySelector('span');
+      span.textContent = fmtNum((parseInt(span.textContent.replace(/[^0-9]/g,'')) || 0) + (liked ? 1 : -1));
+    } catch (e) { showToast(e.message, true); }
+  });
 }
 
 async function loadUpNext(videoId) {
@@ -1050,6 +1222,15 @@ async function startUpload(file) {
   if (!currentUser) { requireAuth(() => {}); return; }
   if (!file.type.startsWith('video/')) return showToast('Please choose a video file', true);
   if (file.size > 200 * 1024 * 1024) return showToast('File exceeds the 200MB direct-upload limit', true);
+  // 5-minute cap — check duration locally before wasting bandwidth
+  const duration = await new Promise(resolve => {
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+    probe.onloadedmetadata = () => { URL.revokeObjectURL(probe.src); resolve(probe.duration); };
+    probe.onerror = () => { URL.revokeObjectURL(probe.src); resolve(null); };
+    probe.src = URL.createObjectURL(file);
+  });
+  if (duration && duration > 302) return showToast(`Videos must be 5 minutes or shorter (yours is ${Math.floor(duration/60)}:${String(Math.round(duration%60)).padStart(2,'0')})`, true);
 
   document.getElementById('upload-step-1').style.display = 'none';
   document.getElementById('upload-step-2').style.display = 'block';
@@ -1297,6 +1478,163 @@ function renderHistory() {
   document.getElementById('history-empty').style.display = h.length ? 'none' : 'block';
 }
 
+// ─── Messages (private DMs) ─────────────────────────────────────
+function messageCreator() {
+  if (!currentVideo) return;
+  if (currentUser && currentVideo.uploaderId === currentUser.uid) return showToast("That's your own video", true);
+  requireAuth(() => openDM(currentVideo.uploaderId));
+}
+function messageStreamer() {
+  if (!window.currentStream) return;
+  if (currentUser && window.currentStream.uploaderId === currentUser.uid) return showToast("That's your own stream", true);
+  requireAuth(() => openDM(window.currentStream.uploaderId));
+}
+
+async function loadConversations() {
+  try {
+    const { conversations } = await api('/messages/conversations', { authRequired: true });
+    const list = document.getElementById('chat-list');
+    list.innerHTML = conversations.length ? conversations.map(c => `
+      <div class="chat-item ${c.otherId === activeChatUid ? 'active' : ''}" onclick="openDM('${esc(c.otherId)}')">
+        <div class="ci-name">${esc(c.otherName)}</div>
+        <div class="ci-last">${c.lastSenderId === currentUser?.uid ? 'You: ' : ''}${esc(c.lastMessage)}</div>
+      </div>`).join('') : '<div class="chat-empty" style="padding:30px 16px;">No conversations yet.<br>Use the Message button on any video.</div>';
+  } catch { /* non-fatal */ }
+}
+
+async function openDM(otherUid) {
+  activeChatUid = otherUid;
+  showPage('messages');
+  document.getElementById('chat-input-row').style.display = '';
+  await refreshThread(true);
+  loadConversations();
+  if (chatPoll) clearInterval(chatPoll);
+  chatPoll = setInterval(() => refreshThread(false), 4000);
+}
+
+async function refreshThread(scroll) {
+  if (!activeChatUid) return;
+  try {
+    const { otherName, messages } = await api('/messages/' + encodeURIComponent(activeChatUid), { authRequired: true });
+    document.getElementById('chat-header').textContent = otherName;
+    const box = document.getElementById('chat-msgs');
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    box.innerHTML = messages.length ? messages.map(m => `
+      <div class="msg ${m.senderId === currentUser?.uid ? 'mine' : 'theirs'}">${esc(m.text)}<span class="m-time">${timeAgo(m.createdAt)}</span></div>`).join('')
+      : '<div class="chat-empty">Say hello 👋 — messages are private between you two.</div>';
+    if (scroll || atBottom) box.scrollTop = box.scrollHeight;
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !activeChatUid) return;
+  input.value = '';
+  try {
+    await api('/messages/' + encodeURIComponent(activeChatUid), { method: 'POST', body: { text }, authRequired: true });
+    await refreshThread(true);
+    loadConversations();
+  } catch (e) { showToast(e.message, true); input.value = text; }
+}
+
+// ─── Live streaming ─────────────────────────────────────────────
+async function startLive() {
+  const btn = document.getElementById('golive-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Creating…';
+  try {
+    liveSession = await api('/live/start', { method: 'POST', authRequired: true, body: { title: document.getElementById('live-title-input').value } });
+    document.getElementById('golive-step-1').style.display = 'none';
+    document.getElementById('golive-step-2').style.display = 'block';
+    if (liveSession.rtmpsUrl) {
+      document.getElementById('live-rtmps').firstChild.textContent = liveSession.rtmpsUrl;
+      document.getElementById('live-key').firstChild.textContent = liveSession.streamKey;
+    } else {
+      document.getElementById('live-rtmps').firstChild.textContent = '(resumed existing stream — credentials were shown when it was created)';
+      document.getElementById('live-key').firstChild.textContent = 'End this stream and create a new one to get fresh credentials';
+    }
+    if (livePoll) clearInterval(livePoll);
+    livePoll = setInterval(pollLiveStatus, 5000);
+  } catch (e) { showToast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = 'Create Stream'; }
+}
+
+async function pollLiveStatus() {
+  if (!liveSession) return;
+  try {
+    const { state } = await api(`/live/${encodeURIComponent(liveSession.id)}/status`, { authRequired: true });
+    const el = document.getElementById('live-state');
+    if (state === 'connected') {
+      el.innerHTML = '<span class="live-badge"><span class="live-dot"></span> LIVE</span> You are live!';
+      document.getElementById('live-view-btn').style.display = '';
+    } else {
+      el.innerHTML = '<span class="status-pill status-processing">Waiting for your stream…</span>';
+      document.getElementById('live-view-btn').style.display = 'none';
+    }
+  } catch { /* transient */ }
+}
+
+async function stopLive() {
+  if (!liveSession) return;
+  try {
+    await api(`/live/${encodeURIComponent(liveSession.id)}/stop`, { method: 'POST', authRequired: true });
+    showToast('Stream ended');
+    liveSession = null;
+    if (livePoll) { clearInterval(livePoll); livePoll = null; }
+    document.getElementById('golive-step-1').style.display = 'block';
+    document.getElementById('golive-step-2').style.display = 'none';
+    showPage('studio');
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function loadLiveRow() {
+  try {
+    const { streams } = await api('/live/active');
+    const wrap = document.getElementById('live-row-wrap');
+    if (!streams.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    document.getElementById('live-grid').innerHTML = streams.map(s => `
+      <div class="video-card" onclick="openLiveWatch('${esc(s.id)}')">
+        <div class="video-thumb" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2a0a0a,#1a0a2a);">
+          <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+        </div>
+        <div class="video-info">
+          <div class="video-avatar">${esc((s.channelName || 'C')[0])}</div>
+          <div class="video-meta">
+            <div class="video-title">${esc(s.title)}</div>
+            <div class="video-sub">${esc(s.channelName)} · streaming now</div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch { /* non-fatal */ }
+}
+
+async function openLiveWatch(id) {
+  showPage('livewatch');
+  const wrap = document.getElementById('live-player-wrap');
+  wrap.innerHTML = '<div class="skeleton" style="width:100%;height:100%;border-radius:0;"></div>';
+  try {
+    const s = await api('/live/' + encodeURIComponent(id));
+    window.currentStream = s;
+    if (s.status !== 'live') {
+      wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);">This stream has ended.</div>';
+    } else if (s.playbackHost) {
+      wrap.innerHTML = `<iframe src="https://${esc(s.playbackHost)}/${encodeURIComponent(s.liveInputUid)}/iframe?autoplay=true" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>`;
+    } else {
+      wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);">Playback unavailable for this stream.</div>';
+    }
+    document.getElementById('live-watch-title').textContent = s.title;
+    document.getElementById('live-ch-name').textContent = s.channelName;
+    document.getElementById('live-ch-avatar').textContent = (s.channelName || 'C')[0].toUpperCase();
+  } catch (e) { wrap.innerHTML = ''; showToast(e.message, true); }
+}
+
+function copyText(id) {
+  const text = document.getElementById(id).firstChild.textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied'));
+}
+
 // ─── Init ───────────────────────────────────────────────────────
 (function init() {
   if (API_BASE_URL.includes('YOUR-API') || FIREBASE_CONFIG.apiKey.includes('YOUR_')) {
@@ -1304,6 +1642,8 @@ function renderHistory() {
       '<div class="error-banner"><strong>Setup required:</strong> open index.html and set API_BASE_URL and FIREBASE_CONFIG at the top of the &lt;script&gt; block, then redeploy.</div>';
   }
   loadFeed(true);
+  loadLiveRow();
+  setInterval(loadLiveRow, 60000);
   // Deep link: ?v=VIDEO_ID
   const vid = new URLSearchParams(location.search).get('v');
   if (vid) openVideo(vid);

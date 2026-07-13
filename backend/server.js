@@ -61,7 +61,7 @@ const writeLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: 
 const CF_BASE = `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/stream`;
 const cfHeaders = { Authorization: `Bearer ${process.env.CF_API_TOKEN}`, 'Content-Type': 'application/json' };
 
-async function getUploadUrl(maxDurationSeconds = 21600, creatorId) {
+async function getUploadUrl(maxDurationSeconds = 330, creatorId) {  // 5 min + 30s grace
   const res = await axios.post(`${CF_BASE}/direct_upload`, {
     maxDurationSeconds,
     requireSignedURLs: false,
@@ -198,7 +198,7 @@ app.post('/auth/sync', authMiddleware, wrap(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 app.post('/videos/upload-url', authMiddleware, writeLimiter, wrap(async (req, res) => {
-  const result = await getUploadUrl(21600, req.user.uid);
+  const result = await getUploadUrl(330, req.user.uid);
   await db.collection('videos').doc(result.uid).set({
     cloudflareUid: result.uid,
     uploaderId: req.user.uid,
@@ -230,6 +230,13 @@ app.post('/videos/:uid/publish', authMiddleware, writeLimiter, wrap(async (req, 
 
   const userDoc = await db.collection('users').doc(req.user.uid).get();
   const cfVideo = await getCFVideo(uid);
+
+  // Enforce 5-minute maximum (Cloudflare also enforces via maxDurationSeconds)
+  if (cfVideo.duration && cfVideo.duration > 305) {
+    await deleteCFVideo(uid).catch(() => {});
+    await videoRef.delete().catch(() => {});
+    return res.status(400).json({ error: 'Videos must be 5 minutes or shorter. This upload was removed.' });
+  }
 
   await videoRef.update({
     title,
@@ -344,7 +351,7 @@ app.get('/videos/:id', optionalAuth, wrap(async (req, res) => {
       }
     } catch {}
   }
-  doc.ref.update({ views: admin.firestore.FieldValue.increment(1) }).catch(() => {});
+  // NOTE: views are no longer incremented on fetch — see POST /videos/:id/view
   let liked = false, subscribed = false;
   if (req.user) {
     const [likeDoc, subDoc] = await Promise.all([
@@ -399,13 +406,40 @@ app.delete('/videos/:id', authMiddleware, writeLimiter, wrap(async (req, res) =>
 }));
 
 // ═══════════════════════════════════════════════════════════════
+// VIEWS — 1 device = 1 view, only after 10s of real playback
+// (frontend calls this via the Stream player SDK timeupdate event)
+// ═══════════════════════════════════════════════════════════════
+app.post('/videos/:id/view', writeLimiter, wrap(async (req, res) => {
+  const deviceId = String(req.body.deviceId || '').replace(/[^a-zA-Z0-9-]/g, '');
+  if (deviceId.length < 16 || deviceId.length > 64) return res.status(400).json({ error: 'Invalid device id' });
+  const videoRef = db.collection('videos').doc(req.params.id);
+  const videoDoc = await videoRef.get();
+  if (!videoDoc.exists || videoDoc.data().status !== 'live') return res.status(404).json({ error: 'Video not found' });
+  const viewRef = db.collection('views').doc(`${deviceId}_${req.params.id}`);
+  const counted = await db.runTransaction(async tx => {
+    const existing = await tx.get(viewRef);
+    if (existing.exists) return false;
+    tx.set(viewRef, { deviceId, videoId: req.params.id, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    tx.update(videoRef, { views: admin.firestore.FieldValue.increment(1) });
+    return true;
+  });
+  res.json({ counted });
+}));
+
+// ═══════════════════════════════════════════════════════════════
 // COMMENTS
 // ═══════════════════════════════════════════════════════════════
-app.get('/videos/:id/comments', wrap(async (req, res) => {
+app.get('/videos/:id/comments', optionalAuth, wrap(async (req, res) => {
   const snap = await db.collection('comments')
     .where('videoId', '==', req.params.id)
-    .orderBy('createdAt', 'desc').limit(50).get();
-  res.json({ comments: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+    .orderBy('createdAt', 'desc').limit(100).get();
+  const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  let likedIds = [];
+  if (req.user && comments.length) {
+    const likeSnaps = await db.getAll(...comments.map(c => db.collection('comment_likes').doc(`${req.user.uid}_${c.id}`)));
+    likedIds = likeSnaps.filter(s => s.exists).map(s => s.id.split('_').slice(1).join('_'));
+  }
+  res.json({ comments: comments.map(c => ({ ...c, liked: likedIds.includes(c.id) })) });
 }));
 
 app.post('/videos/:id/comments', authMiddleware, writeLimiter, wrap(async (req, res) => {
@@ -413,17 +447,46 @@ app.post('/videos/:id/comments', authMiddleware, writeLimiter, wrap(async (req, 
   if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
   const videoDoc = await db.collection('videos').doc(req.params.id).get();
   if (!videoDoc.exists) return res.status(404).json({ error: 'Video not found' });
+  // Threading: optional parentId must be a top-level comment on the same video
+  let parentId = null;
+  if (req.body.parentId) {
+    const parentDoc = await db.collection('comments').doc(String(req.body.parentId)).get();
+    if (!parentDoc.exists || parentDoc.data().videoId !== req.params.id) {
+      return res.status(400).json({ error: 'Invalid parent comment' });
+    }
+    parentId = parentDoc.data().parentId || parentDoc.id; // replies-to-replies attach to the root
+  }
   const userDoc = await db.collection('users').doc(req.user.uid).get();
   const ref = await db.collection('comments').add({
     videoId: req.params.id,
     userId: req.user.uid,
     displayName: userDoc.data()?.displayName || 'Viewer',
     text,
+    parentId,
     likes: 0,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   await videoDoc.ref.update({ commentCount: admin.firestore.FieldValue.increment(1) });
-  res.json({ id: ref.id });
+  res.json({ id: ref.id, parentId });
+}));
+
+app.post('/comments/:id/like', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const commentRef = db.collection('comments').doc(req.params.id);
+  const commentDoc = await commentRef.get();
+  if (!commentDoc.exists) return res.status(404).json({ error: 'Comment not found' });
+  const likeRef = db.collection('comment_likes').doc(`${req.user.uid}_${req.params.id}`);
+  const liked = await db.runTransaction(async tx => {
+    const existing = await tx.get(likeRef);
+    if (existing.exists) {
+      tx.delete(likeRef);
+      tx.update(commentRef, { likes: admin.firestore.FieldValue.increment(-1) });
+      return false;
+    }
+    tx.set(likeRef, { userId: req.user.uid, commentId: req.params.id, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    tx.update(commentRef, { likes: admin.firestore.FieldValue.increment(1) });
+    return true;
+  });
+  res.json({ liked });
 }));
 
 // ═══════════════════════════════════════════════════════════════
@@ -598,6 +661,150 @@ app.post('/mpesa/callback', wrap(async (req, res) => {
     break;
   }
   res.json({ ResultCode: 0, ResultDesc: 'Success' });
+}));
+
+// ═══════════════════════════════════════════════════════════════
+// MESSAGES — private DMs between users
+// ═══════════════════════════════════════════════════════════════
+function convoId(a, b) { return [a, b].sort().join('__'); }
+
+app.get('/messages/conversations', authMiddleware, wrap(async (req, res) => {
+  const snap = await db.collection('conversations')
+    .where('participants', 'array-contains', req.user.uid)
+    .orderBy('updatedAt', 'desc').limit(30).get();
+  const convos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // Attach the other participant's display name
+  const otherIds = [...new Set(convos.map(c => c.participants.find(p => p !== req.user.uid)).filter(Boolean))];
+  const nameMap = {};
+  if (otherIds.length) {
+    const userSnaps = await db.getAll(...otherIds.map(id => db.collection('users').doc(id)));
+    userSnaps.forEach(s => { if (s.exists) nameMap[s.id] = s.data().displayName || 'User'; });
+  }
+  res.json({ conversations: convos.map(c => {
+    const otherId = c.participants.find(p => p !== req.user.uid);
+    return { id: c.id, otherId, otherName: nameMap[otherId] || 'User', lastMessage: c.lastMessage || '', lastSenderId: c.lastSenderId || null, updatedAt: c.updatedAt };
+  }) });
+}));
+
+app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
+  const otherUid = req.params.otherUid;
+  if (otherUid === req.user.uid) return res.status(400).json({ error: 'Cannot message yourself' });
+  const id = convoId(req.user.uid, otherUid);
+  const snap = await db.collection('messages')
+    .where('conversationId', '==', id)
+    .orderBy('createdAt', 'asc').limit(200).get();
+  const otherDoc = await db.collection('users').doc(otherUid).get();
+  res.json({
+    otherName: otherDoc.exists ? otherDoc.data().displayName || 'User' : 'User',
+    messages: snap.docs.map(d => ({ id: d.id, ...d.data() })),
+  });
+}));
+
+app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const otherUid = req.params.otherUid;
+  if (otherUid === req.user.uid) return res.status(400).json({ error: 'Cannot message yourself' });
+  const text = sanitizeText(req.body.text, 2000);
+  if (!text) return res.status(400).json({ error: 'Message cannot be empty' });
+  const otherDoc = await db.collection('users').doc(otherUid).get();
+  if (!otherDoc.exists) return res.status(404).json({ error: 'User not found' });
+  const id = convoId(req.user.uid, otherUid);
+  await db.collection('conversations').doc(id).set({
+    participants: [req.user.uid, otherUid],
+    lastMessage: text.slice(0, 120),
+    lastSenderId: req.user.uid,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  const ref = await db.collection('messages').add({
+    conversationId: id,
+    senderId: req.user.uid,
+    text,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  res.json({ id: ref.id });
+}));
+
+// ═══════════════════════════════════════════════════════════════
+// LIVE STREAMING — Cloudflare Stream Live Inputs
+// Creator gets an RTMPS URL + key for OBS/streaming apps.
+// ═══════════════════════════════════════════════════════════════
+const CF_LIVE_BASE = `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/stream/live_inputs`;
+
+app.post('/live/start', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const title = sanitizeText(req.body.title, 120) || 'Live Stream';
+  // One active stream per creator
+  const existing = await db.collection('streams')
+    .where('uploaderId', '==', req.user.uid)
+    .where('status', 'in', ['created', 'live']).limit(1).get();
+  if (!existing.empty) {
+    const s = existing.docs[0];
+    return res.json({ id: s.id, ...s.data(), resumed: true });
+  }
+  const cfRes = await axios.post(CF_LIVE_BASE, {
+    meta: { name: title, creatorId: req.user.uid },
+    recording: { mode: 'automatic', timeoutSeconds: 30 },
+  }, { headers: cfHeaders });
+  const li = cfRes.data.result;
+  // Derive the customer playback subdomain from the webRTC playback URL
+  const playbackHost = (li.webRTCPlayback?.url || '').match(/https:\/\/([^/]+)/)?.[1] || null;
+  const userDoc = await db.collection('users').doc(req.user.uid).get();
+  const doc = {
+    uploaderId: req.user.uid,
+    channelName: userDoc.data()?.displayName || 'Creator',
+    title,
+    liveInputUid: li.uid,
+    playbackHost,
+    status: 'created',
+    viewers: 0,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  const ref = await db.collection('streams').add(doc);
+  res.json({
+    id: ref.id, ...doc,
+    // RTMP credentials only ever go to the owner, never stored where others can read via API
+    rtmpsUrl: li.rtmps?.url || null,
+    streamKey: li.rtmps?.streamKey || null,
+  });
+}));
+
+// Owner polls this; it also flips the public status when OBS connects/disconnects
+app.get('/live/:id/status', authMiddleware, wrap(async (req, res) => {
+  const ref = db.collection('streams').doc(req.params.id);
+  const doc = await ref.get();
+  if (!doc.exists) return res.status(404).json({ error: 'Stream not found' });
+  const s = doc.data();
+  if (s.uploaderId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+  const cfRes = await axios.get(`${CF_LIVE_BASE}/${encodeURIComponent(s.liveInputUid)}`, { headers: cfHeaders });
+  const state = cfRes.data.result?.status?.current?.state || 'disconnected';
+  if (state === 'connected' && s.status !== 'live') await ref.update({ status: 'live', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+  if (state !== 'connected' && s.status === 'live') await ref.update({ status: 'ended', endedAt: admin.firestore.FieldValue.serverTimestamp() });
+  res.json({ state, status: state === 'connected' ? 'live' : s.status });
+}));
+
+app.get('/live/active', wrap(async (req, res) => {
+  const snap = await db.collection('streams')
+    .where('status', '==', 'live')
+    .orderBy('createdAt', 'desc').limit(20).get();
+  res.json({ streams: snap.docs.map(d => {
+    const { uploaderId, channelName, title, liveInputUid, playbackHost, createdAt } = d.data();
+    return { id: d.id, uploaderId, channelName, title, liveInputUid, playbackHost, createdAt };
+  }) });
+}));
+
+app.get('/live/:id', wrap(async (req, res) => {
+  const doc = await db.collection('streams').doc(req.params.id).get();
+  if (!doc.exists) return res.status(404).json({ error: 'Stream not found' });
+  const { uploaderId, channelName, title, liveInputUid, playbackHost, status, createdAt } = doc.data();
+  res.json({ id: doc.id, uploaderId, channelName, title, liveInputUid, playbackHost, status, createdAt });
+}));
+
+app.post('/live/:id/stop', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const ref = db.collection('streams').doc(req.params.id);
+  const doc = await ref.get();
+  if (!doc.exists) return res.status(404).json({ error: 'Stream not found' });
+  if (doc.data().uploaderId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
+  await axios.delete(`${CF_LIVE_BASE}/${encodeURIComponent(doc.data().liveInputUid)}`, { headers: cfHeaders }).catch(() => {});
+  await ref.update({ status: 'ended', endedAt: admin.firestore.FieldValue.serverTimestamp() });
+  res.json({ success: true });
 }));
 
 // ═══════════════════════════════════════════════════════════════
