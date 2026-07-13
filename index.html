@@ -10,15 +10,15 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0a0a0f;
-      --surface:   #13131a;
-      --card:      #1c1c27;
-      --border:    #2a2a3a;
-      --accent:    #6c63ff;
-      --accent2:   #ff6584;
+      --bg:        #000000;
+      --surface:   #0e0e0c;
+      --card:      #16150f;
+      --border:    #2e2a1e;
+      --accent:    #f0b90b;
+      --accent2:   #ff9f1a;
       --green:     #00e5a0;
       --text:      #f0f0f8;
-      --muted:     #7070a0;
+      --muted:     #9a9382;
       --radius:    12px;
       --font-head: 'Space Grotesk', sans-serif;
       --font-body: 'Inter', sans-serif;
@@ -48,8 +48,8 @@
     .btn { padding: 8px 18px; border-radius: 40px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; font-family: var(--font-body); transition: all .18s; }
     .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
     .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-primary:hover { background: #7d75ff; transform: translateY(-1px); }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: #ffd23f; transform: translateY(-1px); }
     .btn-upload { background: var(--surface); color: var(--text); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
     .btn-upload:hover { border-color: var(--accent); color: var(--accent); }
     .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -74,8 +74,8 @@
     .page.active { display: block; }
 
     /* ─── HERO ─── */
-    .hero { background: linear-gradient(135deg, #0d0d1a 0%, #13102a 50%, #0a0f1a 100%); border-radius: var(--radius); padding: 48px 40px; margin-bottom: 32px; position: relative; overflow: hidden; }
-    .hero::before { content:''; position:absolute; top:-60px; right:-60px; width:300px; height:300px; background: radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%); }
+    .hero { background: linear-gradient(135deg, #0d0b03 0%, #1c1605 50%, #0a0903 100%); border-radius: var(--radius); padding: 48px 40px; margin-bottom: 32px; position: relative; overflow: hidden; }
+    .hero::before { content:''; position:absolute; top:-60px; right:-60px; width:300px; height:300px; background: radial-gradient(circle, rgba(240,185,11,0.15) 0%, transparent 70%); }
     .hero::after { content:''; position:absolute; bottom:-40px; left:30%; width:200px; height:200px; background: radial-gradient(circle, rgba(0,229,160,0.08) 0%, transparent 70%); }
     .hero h1 { font-family: var(--font-head); font-size: clamp(28px, 4vw, 48px); font-weight: 700; line-height: 1.15; margin-bottom: 12px; }
     .hero h1 em { font-style: normal; color: var(--accent); }
@@ -85,20 +85,20 @@
     /* ─── CATEGORIES ─── */
     .categories { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
     .cat-pill { padding: 7px 16px; border-radius: 40px; font-size: 13px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--muted); transition: all .15s; white-space: nowrap; }
-    .cat-pill:hover, .cat-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cat-pill:hover, .cat-pill.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
     /* ─── VIDEO GRID ─── */
     .section-title { font-family: var(--font-head); font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
-    .section-title .badge { font-size: 11px; font-weight: 600; background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 20px; }
+    .section-title .badge { font-size: 11px; font-weight: 600; background: var(--accent); color: #000; padding: 2px 8px; border-radius: 20px; }
     .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }
     .video-card { background: var(--card); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: transform .18s, box-shadow .18s; border: 1px solid var(--border); }
-    .video-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(108,99,255,0.15); border-color: var(--accent); }
+    .video-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(240,185,11,0.15); border-color: var(--accent); }
     .video-thumb { aspect-ratio: 16/9; background: var(--surface); position: relative; overflow: hidden; }
     .video-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
     .video-card:hover .video-thumb img { transform: scale(1.04); }
     .video-duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.8); color: #fff; font-size: 12px; font-weight: 500; padding: 2px 6px; border-radius: 4px; }
     .video-thumb-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-    .play-icon { width: 48px; height: 48px; background: rgba(108,99,255,0.8); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform .2s; }
+    .play-icon { width: 48px; height: 48px; background: rgba(240,185,11,0.8); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform .2s; }
     .video-card:hover .play-icon { transform: scale(1.1); background: var(--accent); }
     .video-info { padding: 12px; display: flex; gap: 10px; }
     .video-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
@@ -118,14 +118,14 @@
     .player-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .action-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 40px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 14px; transition: all .15s; font-family: var(--font-body); }
     .action-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .action-btn.liked { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .action-btn.liked { background: var(--accent); color: #000; border-color: var(--accent); }
     .channel-row { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 16px; }
     .channel-row .ch-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
     .channel-row .ch-info { flex: 1; }
     .channel-row .ch-name { font-weight: 600; font-size: 15px; cursor: pointer; } .channel-row .ch-name:hover { color: var(--accent); }
     .channel-row .ch-subs { font-size: 13px; color: var(--muted); }
     .btn-subscribe { background: var(--text); color: var(--bg); padding: 9px 20px; border-radius: 40px; border: none; font-weight: 600; font-size: 14px; cursor: pointer; font-family: var(--font-body); transition: all .15s; }
-    .btn-subscribe:hover { background: var(--accent); color: #fff; }
+    .btn-subscribe:hover { background: var(--accent); color: #000; }
     .btn-subscribe.subscribed { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
     .description-box { background: var(--surface); border-radius: var(--radius); padding: 16px; font-size: 14px; line-height: 1.7; color: var(--muted); margin-bottom: 20px; }
     .description-box strong { color: var(--text); }
@@ -157,8 +157,8 @@
     /* ─── UPLOAD PAGE ─── */
     .upload-container { max-width: 700px; margin: 0 auto; }
     .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 60px 40px; text-align: center; cursor: pointer; transition: all .2s; background: var(--surface); }
-    .upload-zone:hover, .upload-zone.dragging { border-color: var(--accent); background: rgba(108,99,255,0.05); }
-    .upload-icon { width: 64px; height: 64px; background: rgba(108,99,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .upload-zone:hover, .upload-zone.dragging { border-color: var(--accent); background: rgba(240,185,11,0.05); }
+    .upload-icon { width: 64px; height: 64px; background: rgba(240,185,11,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
     .upload-zone h2 { font-family: var(--font-head); font-size: 22px; margin-bottom: 8px; }
     .upload-zone p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
     .form-group { margin-bottom: 20px; }
@@ -173,8 +173,8 @@
     .progress-label { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
     /* ─── CHANNEL PAGE ─── */
-    .channel-banner { height: 180px; background: linear-gradient(135deg, #1a1040, #0d1a30, #1a0d1a); border-radius: var(--radius); margin-bottom: -40px; position: relative; overflow: hidden; }
-    .channel-banner::before { content:''; position:absolute; inset:0; background: radial-gradient(ellipse at 30% 50%, rgba(108,99,255,0.3), transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(0,229,160,0.15), transparent 60%); }
+    .channel-banner { height: 180px; background: linear-gradient(135deg, #241c06, #0f0d05, #1c1408); border-radius: var(--radius); margin-bottom: -40px; position: relative; overflow: hidden; }
+    .channel-banner::before { content:''; position:absolute; inset:0; background: radial-gradient(ellipse at 30% 50%, rgba(240,185,11,0.3), transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(0,229,160,0.15), transparent 60%); }
     .channel-header { display: flex; align-items: flex-end; gap: 20px; padding: 0 0 24px; margin-top: 0; }
     .channel-big-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; border: 4px solid var(--bg); flex-shrink: 0; margin-top: 0; position: relative; z-index: 1; }
     .channel-header-info { flex: 1; padding-bottom: 4px; }
@@ -233,7 +233,7 @@
     /* ─── TIP MODAL ─── */
     .tip-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
     .tip-btn { padding: 10px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; font-family: var(--font-head); }
-    .tip-btn:hover, .tip-btn.selected { border-color: var(--accent); background: rgba(108,99,255,0.1); color: var(--accent); }
+    .tip-btn:hover, .tip-btn.selected { border-color: var(--accent); background: rgba(240,185,11,0.1); color: var(--accent); }
 
     /* ─── LIVE INDICATOR ─── */
     .live-badge { display: inline-flex; align-items: center; gap: 6px; background: #e00; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
@@ -320,7 +320,7 @@
 
 <nav>
   <a class="nav-logo" href="#" onclick="event.preventDefault(); showPage('home')">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#6c63ff"/><path d="M9 8l8 4-8 4V8z" fill="#fff"/></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
     View<span>Tube</span>
   </a>
   <div class="nav-search">
@@ -514,7 +514,7 @@
       <div id="upload-step-1">
         <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
           <div class="upload-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f0b90b" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <h2>Drag &amp; drop your video</h2>
           <p>MP4, MOV, AVI, MKV · Max 5 minutes · Up to 200MB</p>
@@ -619,9 +619,21 @@
   <section class="page" id="page-messages">
     <div class="section-title" style="font-size:24px; margin-bottom:16px;">Messages</div>
     <div class="chat-layout">
-      <div class="chat-list" id="chat-list"><div class="chat-empty">No conversations yet</div></div>
+      <div class="chat-list">
+        <div style="padding:12px;border-bottom:1px solid var(--border);">
+          <button class="btn btn-primary" style="width:100%;" onclick="openModal('newmsg-modal')">✉️ New Message</button>
+        </div>
+        <div id="chat-list"><div class="chat-empty" style="padding:30px 16px;">No conversations yet</div></div>
+      </div>
       <div class="chat-thread">
         <div class="chat-header" id="chat-header">Select a conversation</div>
+        <div id="chat-request-banner" style="display:none;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(240,185,11,0.06);font-size:13px;">
+          <span id="chat-request-text"></span>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-primary" style="padding:6px 16px;font-size:13px;" onclick="respondRequest('accept')">Accept</button>
+            <button class="btn btn-ghost" style="padding:6px 16px;font-size:13px;" onclick="respondRequest('decline')">Decline</button>
+          </div>
+        </div>
         <div class="chat-msgs" id="chat-msgs"><div class="chat-empty">Messages are private between you and the other person.</div></div>
         <div class="chat-input-row" id="chat-input-row" style="display:none;">
           <input type="text" id="chat-input" placeholder="Write a message..." maxlength="2000" onkeydown="if(event.key==='Enter')sendMessage()" />
@@ -641,7 +653,29 @@
           <label class="form-label">Stream Title</label>
           <input type="text" class="form-input" id="live-title-input" maxlength="120" placeholder="What are you streaming?" />
         </div>
-        <button class="btn btn-primary" id="golive-btn" style="padding:12px 28px;" onclick="startLive()">Create Stream</button>
+        <div class="form-group">
+          <label class="form-label">How do you want to stream?</label>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" id="golive-cam-btn" style="padding:12px 24px;" onclick="startLive('camera')">📷 Use Camera</button>
+            <button class="btn btn-ghost" id="golive-btn" style="padding:12px 24px;" onclick="startLive('rtmp')">🎛 Use OBS / RTMP</button>
+          </div>
+          <p style="color:var(--muted);font-size:13px;margin-top:8px;">Camera streams straight from this browser — webcam on desktop, front or back camera on your phone.</p>
+        </div>
+      </div>
+      <!-- Camera broadcast -->
+      <div id="golive-camera" style="display:none;">
+        <div class="player-wrap" style="margin-bottom:16px;background:#000;">
+          <video id="cam-preview" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          <span class="live-state" id="cam-state"><span class="status-pill status-processing">Preview — not live yet</span></span>
+          <button class="btn btn-ghost" id="cam-flip-btn" onclick="flipCamera()">🔄 Flip Camera</button>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <button class="btn btn-primary" id="cam-broadcast-btn" style="padding:12px 28px;" onclick="startBroadcast()">Start Broadcasting</button>
+          <button class="btn btn-primary" id="cam-stop-btn" style="padding:12px 28px;background:var(--accent2);display:none;" onclick="stopBroadcast()">End Broadcast</button>
+          <button class="btn btn-ghost" onclick="exitCamera()">Cancel</button>
+        </div>
       </div>
       <div id="golive-step-2" style="display:none;">
         <div class="form-group">
@@ -746,6 +780,19 @@
   </div>
 </div>
 
+<!-- NEW MESSAGE MODAL -->
+<div class="modal-overlay" id="newmsg-modal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeModal('newmsg-modal')">✕</button>
+    <h2>✉️ New Message</h2>
+    <p>Search for anyone on ViewTube. They'll get your message as a request they can accept or decline.</p>
+    <div class="form-group">
+      <input class="form-input" id="user-search-input" placeholder="Search by name..." oninput="searchUsers(this.value)" />
+    </div>
+    <div id="user-search-results" style="max-height:260px;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"><span class="toast-dot" id="toast-dot"></span><span id="toast-msg"></span></div>
 
@@ -784,6 +831,10 @@ let chatPoll = null, livePoll = null;
 let activeChatUid = null;
 let liveSession = null;
 let replyTarget = null;
+let camStream = null, camPC = null, camFacing = 'user', broadcasting = false;
+let activeChatStatus = 'accepted', activeChatRequester = null;
+let userSearchTimer = null;
+let upNextQueue = [];
 const DEVICE_ID = (() => {
   try {
     let id = localStorage.getItem('vt_device');
@@ -922,6 +973,7 @@ function showPage(name) {
   if (name !== 'livewatch') document.getElementById('live-player-wrap').innerHTML = '';
   if (name !== 'messages' && chatPoll) { clearInterval(chatPoll); chatPoll = null; }
   if (name !== 'golive' && livePoll) { clearInterval(livePoll); livePoll = null; }
+  if (name !== 'golive' && camStream && !broadcasting) exitCamera();
   if (name === 'messages') loadConversations();
   if (name === 'trending') loadTrending();
   if (name === 'subscriptions') loadSubscriptions();
@@ -1039,6 +1091,12 @@ async function openVideo(id) {
               .then(r => { if (r.counted) { currentVideo.views = (currentVideo.views || 0) + 1; document.getElementById('player-views').textContent = fmtNum(currentVideo.views) + ' views'; } })
               .catch(() => {});
           }
+        });
+        // Continuous playback: when a video ends, autoplay the next one; loop if nothing is queued
+        streamPlayer.addEventListener('ended', () => {
+          const nextId = upNextQueue.find(id => id !== currentVideo?.id);
+          if (nextId) openVideo(nextId);
+          else { try { streamPlayer.currentTime = 0; streamPlayer.play(); } catch {} }
         });
       } catch (e) { console.warn('Player SDK unavailable:', e); }
     } else {
@@ -1171,8 +1229,10 @@ async function likeComment(id, btn) {
 async function loadUpNext(videoId) {
   const list = document.getElementById('upnext-list');
   list.innerHTML = '';
+  upNextQueue = [];
   try {
     const { videos } = await api(`/videos/${encodeURIComponent(videoId)}/related`);
+    upNextQueue = videos.map(o => o.id);
     list.innerHTML = videos.map(o => `
       <div class="sv-card" onclick="openVideo('${esc(o.id)}')">
         <div class="sv-thumb">
@@ -1494,11 +1554,20 @@ async function loadConversations() {
   try {
     const { conversations } = await api('/messages/conversations', { authRequired: true });
     const list = document.getElementById('chat-list');
-    list.innerHTML = conversations.length ? conversations.map(c => `
+    const item = c => {
+      const isRequestToMe = c.status === 'pending' && c.requesterId !== currentUser?.uid;
+      const sentPending = c.status === 'pending' && c.requesterId === currentUser?.uid;
+      return `
       <div class="chat-item ${c.otherId === activeChatUid ? 'active' : ''}" onclick="openDM('${esc(c.otherId)}')">
-        <div class="ci-name">${esc(c.otherName)}</div>
+        <div class="ci-name">${esc(c.otherName)}${sentPending ? ' <span style="color:var(--muted);font-weight:400;font-size:11px;">(request sent)</span>' : ''}</div>
         <div class="ci-last">${c.lastSenderId === currentUser?.uid ? 'You: ' : ''}${esc(c.lastMessage)}</div>
-      </div>`).join('') : '<div class="chat-empty" style="padding:30px 16px;">No conversations yet.<br>Use the Message button on any video.</div>';
+      </div>`;
+    };
+    const requests = conversations.filter(c => c.status === 'pending' && c.requesterId !== currentUser?.uid);
+    const chats = conversations.filter(c => !(c.status === 'pending' && c.requesterId !== currentUser?.uid));
+    list.innerHTML = (requests.length ? `<div class="sidebar-label" style="padding:10px 16px 4px;">Requests (${requests.length})</div>` + requests.map(item).join('') : '')
+      + (chats.length ? `<div class="sidebar-label" style="padding:10px 16px 4px;">Chats</div>` + chats.map(item).join('') : '')
+      || '<div class="chat-empty" style="padding:30px 16px;">No conversations yet.<br>Use New Message or the Message button on any video.</div>';
   } catch { /* non-fatal */ }
 }
 
@@ -1515,8 +1584,19 @@ async function openDM(otherUid) {
 async function refreshThread(scroll) {
   if (!activeChatUid) return;
   try {
-    const { otherName, messages } = await api('/messages/' + encodeURIComponent(activeChatUid), { authRequired: true });
+    const { otherName, messages, status, requesterId } = await api('/messages/' + encodeURIComponent(activeChatUid), { authRequired: true });
+    activeChatStatus = status; activeChatRequester = requesterId;
     document.getElementById('chat-header').textContent = otherName;
+    const iAmReceiver = requesterId && requesterId !== currentUser?.uid;
+    const banner = document.getElementById('chat-request-banner');
+    if (status === 'pending' && iAmReceiver) {
+      banner.style.display = 'block';
+      document.getElementById('chat-request-text').textContent = otherName + ' wants to message you. Accept to reply, or decline to hide this conversation.';
+      document.getElementById('chat-input-row').style.display = 'none';
+    } else {
+      banner.style.display = 'none';
+      document.getElementById('chat-input-row').style.display = '';
+    }
     const box = document.getElementById('chat-msgs');
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
     box.innerHTML = messages.length ? messages.map(m => `
@@ -1539,13 +1619,20 @@ async function sendMessage() {
 }
 
 // ─── Live streaming ─────────────────────────────────────────────
-async function startLive() {
-  const btn = document.getElementById('golive-btn');
+async function startLive(mode) {
+  const btn = document.getElementById(mode === 'camera' ? 'golive-cam-btn' : 'golive-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Creating…';
   try {
     liveSession = await api('/live/start', { method: 'POST', authRequired: true, body: { title: document.getElementById('live-title-input').value } });
     document.getElementById('golive-step-1').style.display = 'none';
+    if (mode === 'camera') {
+      if (!liveSession.webRTCUrl) throw new Error('Camera streaming not available for this stream — use OBS mode');
+      document.getElementById('golive-camera').style.display = 'block';
+      await initCamera();
+      btn.disabled = false; btn.textContent = '📷 Use Camera';
+      return;
+    }
     document.getElementById('golive-step-2').style.display = 'block';
     if (liveSession.rtmpsUrl) {
       document.getElementById('live-rtmps').firstChild.textContent = liveSession.rtmpsUrl;
@@ -1557,7 +1644,7 @@ async function startLive() {
     if (livePoll) clearInterval(livePoll);
     livePoll = setInterval(pollLiveStatus, 5000);
   } catch (e) { showToast(e.message, true); }
-  finally { btn.disabled = false; btn.textContent = 'Create Stream'; }
+  finally { btn.disabled = false; if (btn.id === 'golive-btn') btn.textContent = '🎛 Use OBS / RTMP'; }
 }
 
 async function pollLiveStatus() {
@@ -1633,6 +1720,141 @@ async function openLiveWatch(id) {
 function copyText(id) {
   const text = document.getElementById(id).firstChild.textContent;
   navigator.clipboard.writeText(text).then(() => showToast('Copied'));
+}
+
+// ─── Camera broadcasting (WebRTC / WHIP — no OBS needed) ────────
+async function initCamera() {
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+    document.getElementById('cam-preview').srcObject = camStream;
+  } catch (e) {
+    showToast('Camera/microphone access denied: ' + e.message, true);
+    exitCamera();
+  }
+}
+
+async function flipCamera() {
+  camFacing = camFacing === 'user' ? 'environment' : 'user';
+  const old = camStream;
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+    document.getElementById('cam-preview').srcObject = camStream;
+    // If already broadcasting, swap tracks live without reconnecting
+    if (camPC) {
+      const newVideo = camStream.getVideoTracks()[0];
+      const newAudio = camStream.getAudioTracks()[0];
+      for (const sender of camPC.getSenders()) {
+        if (sender.track?.kind === 'video' && newVideo) await sender.replaceTrack(newVideo);
+        if (sender.track?.kind === 'audio' && newAudio) await sender.replaceTrack(newAudio);
+      }
+    }
+    old?.getTracks().forEach(t => t.stop());
+  } catch (e) {
+    camFacing = camFacing === 'user' ? 'environment' : 'user'; // revert
+    showToast('Could not switch camera: ' + e.message, true);
+  }
+}
+
+async function startBroadcast() {
+  if (!camStream || !liveSession?.webRTCUrl) return;
+  const btn = document.getElementById('cam-broadcast-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Connecting…';
+  try {
+    camPC = new RTCPeerConnection();
+    camStream.getTracks().forEach(t => camPC.addTrack(t, camStream));
+    const offer = await camPC.createOffer();
+    await camPC.setLocalDescription(offer);
+    // Wait for ICE gathering (max 2s)
+    await new Promise(r => {
+      if (camPC.iceGatheringState === 'complete') return r();
+      const done = () => { if (camPC.iceGatheringState === 'complete') { camPC.removeEventListener('icegatheringstatechange', done); r(); } };
+      camPC.addEventListener('icegatheringstatechange', done);
+      setTimeout(r, 2000);
+    });
+    const res = await fetch(liveSession.webRTCUrl, { method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: camPC.localDescription.sdp });
+    if (!res.ok) throw new Error('Broadcast connection rejected (' + res.status + ')');
+    const answer = await res.text();
+    await camPC.setRemoteDescription({ type: 'answer', sdp: answer });
+    broadcasting = true;
+    document.getElementById('cam-state').innerHTML = '<span class="live-badge"><span class="live-dot"></span> LIVE</span> Broadcasting from your camera';
+    btn.style.display = 'none';
+    document.getElementById('cam-stop-btn').style.display = '';
+    camPC.addEventListener('connectionstatechange', () => {
+      if (['failed', 'disconnected'].includes(camPC.connectionState) && broadcasting) {
+        showToast('Broadcast connection lost', true);
+        document.getElementById('cam-state').innerHTML = '<span class="status-pill status-processing">Reconnect needed — press Start Broadcasting</span>';
+        teardownPC();
+        document.getElementById('cam-broadcast-btn').style.display = '';
+        document.getElementById('cam-stop-btn').style.display = 'none';
+      }
+    });
+  } catch (e) {
+    showToast(e.message, true);
+    teardownPC();
+  } finally { btn.disabled = false; btn.textContent = 'Start Broadcasting'; }
+}
+
+function teardownPC() { broadcasting = false; try { camPC?.close(); } catch {} camPC = null; }
+
+async function stopBroadcast() {
+  teardownPC();
+  await stopLive(); // ends the stream server-side too
+  exitCamera(false);
+}
+
+function exitCamera(reset = true) {
+  teardownPC();
+  camStream?.getTracks().forEach(t => t.stop());
+  camStream = null;
+  document.getElementById('cam-preview').srcObject = null;
+  document.getElementById('golive-camera').style.display = 'none';
+  document.getElementById('cam-broadcast-btn').style.display = '';
+  document.getElementById('cam-stop-btn').style.display = 'none';
+  document.getElementById('cam-state').innerHTML = '<span class="status-pill status-processing">Preview — not live yet</span>';
+  if (reset) document.getElementById('golive-step-1').style.display = 'block';
+}
+
+// ─── New message: user search ───────────────────────────────────
+function searchUsers(q) {
+  clearTimeout(userSearchTimer);
+  userSearchTimer = setTimeout(async () => {
+    q = q.trim();
+    const box = document.getElementById('user-search-results');
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    try {
+      const { users } = await api('/users/search?q=' + encodeURIComponent(q), { authRequired: true });
+      box.innerHTML = users.length ? users.map(u => `
+        <div class="chat-item" onclick="closeModal('newmsg-modal'); openDM('${esc(u.id)}')">
+          <div class="ci-name">${esc(u.displayName)}</div>
+        </div>`).join('') : '<div class="chat-empty" style="padding:20px;">No users found</div>';
+    } catch (e) { showToast(e.message, true); }
+  }, 350);
+}
+
+async function respondRequest(action) {
+  if (!activeChatUid) return;
+  try {
+    const { status } = await api('/messages/' + encodeURIComponent(activeChatUid) + '/respond', { method: 'POST', body: { action }, authRequired: true });
+    document.getElementById('chat-request-banner').style.display = 'none';
+    if (status === 'declined') {
+      activeChatUid = null;
+      document.getElementById('chat-header').textContent = 'Select a conversation';
+      document.getElementById('chat-msgs').innerHTML = '<div class="chat-empty">Request declined.</div>';
+      document.getElementById('chat-input-row').style.display = 'none';
+      showToast('Request declined');
+    } else {
+      showToast('Request accepted');
+      refreshThread(true);
+    }
+    loadConversations();
+  } catch (e) { showToast(e.message, true); }
 }
 
 // ─── Init ───────────────────────────────────────────────────────

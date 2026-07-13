@@ -179,6 +179,7 @@ app.post('/auth/sync', authMiddleware, wrap(async (req, res) => {
   if (!doc.exists) {
     await userRef.set({
       displayName: req.user.name || req.user.email?.split('@')[0] || 'Creator',
+      displayNameLower: (req.user.name || req.user.email?.split('@')[0] || 'creator').toLowerCase(),
       email: req.user.email || null,
       photoURL: req.user.picture || null,
       bio: '',
@@ -188,7 +189,22 @@ app.post('/auth/sync', authMiddleware, wrap(async (req, res) => {
     });
   }
   const fresh = await userRef.get();
+  // Backfill searchable lowercase name for existing users
+  if (fresh.exists && !fresh.data().displayNameLower && fresh.data().displayName) {
+    await userRef.update({ displayNameLower: fresh.data().displayName.toLowerCase() });
+  }
   res.json({ id: fresh.id, ...fresh.data() });
+}));
+
+// Search platform users by name (for starting conversations)
+app.get('/users/search', authMiddleware, wrap(async (req, res) => {
+  const q = sanitizeText(req.query.q, 50).toLowerCase();
+  if (!q) return res.json({ users: [] });
+  const snap = await db.collection('users')
+    .orderBy('displayNameLower').startAt(q).endAt(q + '\uf8ff').limit(10).get();
+  res.json({ users: snap.docs
+    .filter(d => d.id !== req.user.uid)
+    .map(d => ({ id: d.id, displayName: d.data().displayName || 'User' })) });
 }));
 
 // ═══════════════════════════════════════════════════════════════
@@ -555,6 +571,7 @@ app.put('/users/profile', authMiddleware, writeLimiter, wrap(async (req, res) =>
     const name = sanitizeText(req.body.displayName, 50);
     if (!name) return res.status(400).json({ error: 'Display name cannot be empty' });
     update.displayName = name;
+    update.displayNameLower = name.toLowerCase();
   }
   if (req.body.bio !== undefined) update.bio = sanitizeText(req.body.bio, 1000);
   if (req.body.location !== undefined) update.location = sanitizeText(req.body.location, 100);
@@ -680,22 +697,28 @@ app.get('/messages/conversations', authMiddleware, wrap(async (req, res) => {
     const userSnaps = await db.getAll(...otherIds.map(id => db.collection('users').doc(id)));
     userSnaps.forEach(s => { if (s.exists) nameMap[s.id] = s.data().displayName || 'User'; });
   }
-  res.json({ conversations: convos.map(c => {
-    const otherId = c.participants.find(p => p !== req.user.uid);
-    return { id: c.id, otherId, otherName: nameMap[otherId] || 'User', lastMessage: c.lastMessage || '', lastSenderId: c.lastSenderId || null, updatedAt: c.updatedAt };
-  }) });
+  res.json({ conversations: convos
+    .filter(c => !((c.status === 'declined') && c.requesterId !== req.user.uid)) // hide declined requests from the person who declined
+    .map(c => {
+      const otherId = c.participants.find(p => p !== req.user.uid);
+      return { id: c.id, otherId, otherName: nameMap[otherId] || 'User', lastMessage: c.lastMessage || '', lastSenderId: c.lastSenderId || null, status: c.status || 'accepted', requesterId: c.requesterId || null, updatedAt: c.updatedAt };
+    }) });
 }));
 
 app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
   const otherUid = req.params.otherUid;
   if (otherUid === req.user.uid) return res.status(400).json({ error: 'Cannot message yourself' });
   const id = convoId(req.user.uid, otherUid);
-  const snap = await db.collection('messages')
-    .where('conversationId', '==', id)
-    .orderBy('createdAt', 'asc').limit(200).get();
-  const otherDoc = await db.collection('users').doc(otherUid).get();
+  const [snap, otherDoc, convoDoc] = await Promise.all([
+    db.collection('messages').where('conversationId', '==', id).orderBy('createdAt', 'asc').limit(200).get(),
+    db.collection('users').doc(otherUid).get(),
+    db.collection('conversations').doc(id).get(),
+  ]);
+  const convo = convoDoc.exists ? convoDoc.data() : null;
   res.json({
     otherName: otherDoc.exists ? otherDoc.data().displayName || 'User' : 'User',
+    status: convo ? (convo.status || 'accepted') : 'new',
+    requesterId: convo?.requesterId || null,
     messages: snap.docs.map(d => ({ id: d.id, ...d.data() })),
   });
 }));
@@ -708,12 +731,33 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
   const otherDoc = await db.collection('users').doc(otherUid).get();
   if (!otherDoc.exists) return res.status(404).json({ error: 'User not found' });
   const id = convoId(req.user.uid, otherUid);
-  await db.collection('conversations').doc(id).set({
+  const convoRef = db.collection('conversations').doc(id);
+  const convoDoc = await convoRef.get();
+
+  const update = {
     participants: [req.user.uid, otherUid],
     lastMessage: text.slice(0, 120),
     lastSenderId: req.user.uid,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
+  };
+
+  if (!convoDoc.exists) {
+    // First message = a message request; the receiver must accept before replying
+    update.status = 'pending';
+    update.requesterId = req.user.uid;
+    update.createdAt = admin.firestore.FieldValue.serverTimestamp();
+  } else {
+    const c = convoDoc.data();
+    const status = c.status || 'accepted'; // conversations from before this feature count as accepted
+    const isRequester = c.requesterId === req.user.uid;
+    if (status === 'declined' && isRequester) {
+      return res.status(403).json({ error: "This user isn't accepting your messages" });
+    }
+    // Receiver replying to a pending/declined request = implicit accept
+    if (status !== 'accepted' && !isRequester) update.status = 'accepted';
+  }
+
+  await convoRef.set(update, { merge: true });
   const ref = await db.collection('messages').add({
     conversationId: id,
     senderId: req.user.uid,
@@ -721,6 +765,21 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   res.json({ id: ref.id });
+}));
+
+// Accept or decline a message request (receiver only)
+app.post('/messages/:otherUid/respond', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const action = req.body.action;
+  if (!['accept', 'decline'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
+  const id = convoId(req.user.uid, req.params.otherUid);
+  const convoRef = db.collection('conversations').doc(id);
+  const doc = await convoRef.get();
+  if (!doc.exists) return res.status(404).json({ error: 'Conversation not found' });
+  const c = doc.data();
+  if (!c.participants.includes(req.user.uid)) return res.status(403).json({ error: 'Forbidden' });
+  if (c.requesterId === req.user.uid) return res.status(400).json({ error: 'Only the recipient can respond to a request' });
+  await convoRef.update({ status: action === 'accept' ? 'accepted' : 'declined' });
+  res.json({ status: action === 'accept' ? 'accepted' : 'declined' });
 }));
 
 // ═══════════════════════════════════════════════════════════════
@@ -753,17 +812,16 @@ app.post('/live/start', authMiddleware, writeLimiter, wrap(async (req, res) => {
     title,
     liveInputUid: li.uid,
     playbackHost,
+    rtmpsUrl: li.rtmps?.url || null,
+    streamKey: li.rtmps?.streamKey || null,
+    webRTCUrl: li.webRTC?.url || null,
     status: 'created',
     viewers: 0,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   const ref = await db.collection('streams').add(doc);
-  res.json({
-    id: ref.id, ...doc,
-    // RTMP credentials only ever go to the owner, never stored where others can read via API
-    rtmpsUrl: li.rtmps?.url || null,
-    streamKey: li.rtmps?.streamKey || null,
-  });
+  // Credentials are stored on the doc but public endpoints whitelist fields, so only the owner ever receives them
+  res.json({ id: ref.id, ...doc });
 }));
 
 // Owner polls this; it also flips the public status when OBS connects/disconnects
