@@ -316,6 +316,10 @@
     .live-cred { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-family: monospace; font-size: 13px; word-break: break-all; margin-bottom: 12px; position: relative; }
     .live-cred .copy-btn { position: absolute; top: 8px; right: 8px; }
     .live-state { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+    .legal-doc h1 { font-family: var(--font-head); font-size: 26px; margin-bottom: 6px; }
+    .legal-doc h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; }
+    .legal-doc p { font-size: 14px; line-height: 1.75; color: var(--text); margin-bottom: 10px; }
+    .legal-doc .legal-meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
     /* reactions */
     .reactions-bar { display: flex; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
     .react-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid transparent; border-radius: 40px; padding: 7px 14px; cursor: pointer; font-size: 16px; color: var(--text); font-family: var(--font-body); transition: transform .12s, background .15s; }
@@ -417,6 +421,14 @@
     <a class="sidebar-item" onclick="filterCategory('Education')">📚 Education</a>
     <a class="sidebar-item" onclick="filterCategory('Sports')">⚽ Sports</a>
     <a class="sidebar-item" onclick="filterCategory('Comedy')">😂 Comedy</a>
+  </div>
+  <hr class="sidebar-sep">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Legal</div>
+    <a class="sidebar-item" style="font-size:12px;" onclick="showLegal('privacy')">Privacy Policy</a>
+    <a class="sidebar-item" style="font-size:12px;" onclick="showLegal('terms')">Terms of Service</a>
+    <a class="sidebar-item" style="font-size:12px;" onclick="showLegal('safety')">Safety Guidelines</a>
+    <a class="sidebar-item" style="font-size:12px;" onclick="showLegal('copyright')">Copyright Policy</a>
   </div>
 </aside>
 
@@ -629,6 +641,7 @@
           <label class="form-label">Tags (comma separated)</label>
           <input type="text" class="form-input" id="video-tags-input" placeholder="tech, review, howto" />
         </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">By publishing you confirm this content is yours or licensed to you, and that it follows our <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); showLegal('safety')">Safety Guidelines</a> and <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); showLegal('copyright')">Copyright Policy</a>.</p>
         <div style="display:flex;gap:12px;margin-top:8px;">
           <button class="btn btn-primary" id="publish-btn" onclick="publishVideo()" style="flex:1;padding:12px;" disabled>Publish Video</button>
           <button class="btn btn-ghost" onclick="cancelUpload()">Cancel</button>
@@ -793,6 +806,100 @@
     </div>
   </section>
 
+  <!-- LEGAL -->
+  <section class="page" id="page-legal">
+    <div style="max-width:820px;">
+      <div class="categories" style="margin-bottom:24px;">
+        <div class="cat-pill" id="legal-tab-privacy" onclick="showLegal('privacy')">Privacy Policy</div>
+        <div class="cat-pill" id="legal-tab-terms" onclick="showLegal('terms')">Terms of Service</div>
+        <div class="cat-pill" id="legal-tab-safety" onclick="showLegal('safety')">Safety Guidelines</div>
+        <div class="cat-pill" id="legal-tab-copyright" onclick="showLegal('copyright')">Copyright Policy</div>
+      </div>
+
+      <div class="legal-doc" id="legal-privacy" style="display:none;">
+        <h1>Privacy Policy</h1>
+        <p class="legal-meta">Effective date: 13 July 2026 · Applies to viewtube.co.ke and related ViewTube services</p>
+        <p>ViewTube ("the Platform", "we", "us") is operated from Kenya. This policy explains what personal data we collect, why, and the rights you have under the Kenyan Data Protection Act, 2019.</p>
+        <h2>1. Data we collect</h2>
+        <p><strong>Account data.</strong> When you sign in with Google or email, we receive your name, email address, and profile photo, which we use to create your channel profile. Authentication is provided by Google Firebase.</p>
+        <p><strong>Content you create.</strong> Videos you upload or record, live streams, comments, replies, reactions, and private messages are stored so the service can function. Private messages are visible only to their two participants and to authorized administrators where required for abuse investigation or by law.</p>
+        <p><strong>Payment data.</strong> When you tip a creator or register a payout number, we collect the M-Pesa phone number you provide and transaction records (amount, time, M-Pesa receipt number). Payments are processed by Safaricom's M-Pesa service; we never see or store M-Pesa PINs.</p>
+        <p><strong>Technical data.</strong> We assign your browser a random device identifier used solely to count each video view once per device. Your watch history and playback positions are stored on your own device (local storage), not on our servers. Our infrastructure providers log IP addresses and request data for security and abuse prevention.</p>
+        <h2>2. How we use data</h2>
+        <p>To operate the Platform: hosting and streaming your videos, displaying your channel, delivering messages, counting views honestly, processing tips and creator payouts, preventing fraud and abuse, and complying with legal obligations. We do not sell personal data, and we do not use your private messages for advertising.</p>
+        <h2>3. Who we share data with</h2>
+        <p>Our processors: Google Firebase (authentication and database, Google LLC), Cloudflare (video storage, processing and streaming, Cloudflare Inc.), Railway (application hosting), and Safaricom PLC (M-Pesa payments). Each processes data only to provide their service to us. Some processors store data outside Kenya; we rely on their standard safeguards for such transfers. We may disclose data where required by Kenyan law or a lawful order.</p>
+        <h2>4. Retention</h2>
+        <p>Account and content data are kept while your account is active. Deleted videos are removed from our systems and from Cloudflare. Payment records are retained as required for financial and tax compliance. You may request deletion of your account and associated personal data at any time.</p>
+        <h2>5. Your rights (Data Protection Act, 2019)</h2>
+        <p>You have the right to be informed about how your data is used; to access the data we hold on you; to have inaccurate data corrected; to request deletion; to object to certain processing; and to complain to the Office of the Data Protection Commissioner (ODPC), Kenya. To exercise any right, contact us at <strong>support@viewtube.co.ke</strong>. We respond within the timelines the Act prescribes.</p>
+        <h2>6. Children</h2>
+        <p>ViewTube is not directed at children under 13, and users under 18 may not register payout numbers or send tips. If we learn a child under 13 has created an account, we will delete it.</p>
+        <h2>7. Security</h2>
+        <p>Data in transit is encrypted (HTTPS). Access to production systems is restricted and authenticated. No system is perfectly secure; if a breach affecting your personal data occurs, we will notify you and the ODPC as the Act requires.</p>
+        <h2>8. Changes</h2>
+        <p>We will post any changes to this policy on this page with a new effective date, and for material changes we will notify signed-in users.</p>
+      </div>
+
+      <div class="legal-doc" id="legal-terms" style="display:none;">
+        <h1>Terms of Service</h1>
+        <p class="legal-meta">Effective date: 13 July 2026</p>
+        <p>These Terms govern your use of ViewTube. By creating an account, uploading content, or using the Platform, you agree to them. If you do not agree, do not use the Platform.</p>
+        <h2>1. Your account</h2>
+        <p>You must provide accurate information and keep your credentials secure. You are responsible for activity on your account. You must be at least 13 years old to use ViewTube and at least 18 to send tips or receive payouts.</p>
+        <h2>2. Your content</h2>
+        <p><strong>You keep ownership</strong> of every video, stream, comment and message you create. By uploading, you grant ViewTube a worldwide, non-exclusive, royalty-free licence to host, store, transcode, reproduce, distribute, publicly perform and display that content for the purpose of operating and promoting the Platform, including making it available for viewer downloads where that feature is enabled. This licence ends when you delete the content, except for copies already downloaded by other users and residual backup copies removed in the ordinary course.</p>
+        <p>You warrant that you own or have all necessary rights to everything you upload, including music, footage and images within your videos.</p>
+        <h2>3. Rules of use</h2>
+        <p>You must not upload or stream content that is unlawful under Kenyan law; infringes copyright or other rights; sexualizes or endangers minors in any way; promotes violence, terrorism or hatred against protected groups; harasses or threatens others; is fraudulent or deliberately deceptive in a way likely to cause harm; or contains malware. You must not manipulate views, likes or reactions, scrape the Platform, resell access, or interfere with its operation. Videos are limited to 5 minutes.</p>
+        <h2>4. Payments and monetization</h2>
+        <p>Tips are voluntary payments from viewers to creators, processed via M-Pesa. ViewTube may deduct a platform fee and transaction costs from amounts payable to creators; the applicable fee will be displayed before or within the Studio. Payouts require a valid Kenyan M-Pesa number. Tips are non-refundable except where required by law or where a payment was demonstrably fraudulent. You are responsible for your own taxes on amounts you earn.</p>
+        <h2>5. Enforcement and termination</h2>
+        <p>We may remove content, restrict features, or suspend or terminate accounts that violate these Terms, our Safety Guidelines, or the law — with severity proportionate to the violation, and immediately for severe violations (such as child safety offences). You may stop using ViewTube and request account deletion at any time.</p>
+        <h2>6. Disclaimers and liability</h2>
+        <p>The Platform is provided "as is" without warranties of uninterrupted or error-free operation. Content belongs to its creators and does not represent our views. To the maximum extent permitted by Kenyan law, ViewTube's total liability to you for any claim is limited to the greater of the fees you paid us in the preceding 12 months or KSh 10,000. Nothing in these Terms limits liability that cannot be limited under law.</p>
+        <h2>7. Governing law</h2>
+        <p>These Terms are governed by the laws of Kenya, and disputes are subject to the jurisdiction of Kenyan courts.</p>
+        <h2>8. Contact</h2>
+        <p>Questions about these Terms: <strong>support@viewtube.co.ke</strong>.</p>
+      </div>
+
+      <div class="legal-doc" id="legal-safety" style="display:none;">
+        <h1>Safety Guidelines</h1>
+        <p class="legal-meta">These guidelines apply to all videos, live streams, comments, and private messages.</p>
+        <h2>Zero tolerance</h2>
+        <p>Content that sexualizes, exploits, or endangers minors is removed immediately, the account is permanently terminated, and where the law requires we report to the relevant authorities. There are no second chances in this category.</p>
+        <h2>Not allowed</h2>
+        <p><strong>Harassment and hate.</strong> Targeted abuse, threats, doxxing, or content promoting hatred or violence against people based on ethnicity, religion, sex, disability, or other protected characteristics.</p>
+        <p><strong>Violence and dangerous acts.</strong> Real-world graphic violence intended to shock, incitement to violence, or instructions for causing serious harm. News, documentary and educational context is considered.</p>
+        <p><strong>Harmful deception.</strong> Scams, fraud, impersonation of other people or organizations, and manipulated media presented as real in ways likely to cause serious harm.</p>
+        <p><strong>Adult sexual content.</strong> Pornographic content is not permitted on ViewTube.</p>
+        <p><strong>Spam and manipulation.</strong> Artificially inflating views or engagement, mass unsolicited messages, and repetitive low-value content.</p>
+        <h2>Live streams and messages</h2>
+        <p>All rules apply in real time to live streams; streams may be ended mid-broadcast for violations. Private messages are protected by the message-request system — nobody can push a conversation on you without your acceptance — but safety rules still apply inside accepted conversations, and recipients can report abusive messages.</p>
+        <h2>Reporting and enforcement</h2>
+        <p>Report content or users by emailing <strong>support@viewtube.co.ke</strong> with a link to the video, stream, or profile. We review reports and act with a graduated approach: content removal → warning → feature restriction → suspension → termination, escalating faster for severe or repeated violations. Decisions can be appealed by replying to the enforcement notice.</p>
+      </div>
+
+      <div class="legal-doc" id="legal-copyright" style="display:none;">
+        <h1>Copyright Policy</h1>
+        <p class="legal-meta">ViewTube respects intellectual property and complies with the Copyright Act (Kenya) and internationally recognized notice-and-takedown practice.</p>
+        <h2>1. Creator responsibilities</h2>
+        <p>Only upload content you created or have permission to use. This includes the music inside your videos — using a commercial song as your soundtrack without a licence is infringement even if the footage is yours. "I found it online" and "I credited the owner" are not licences.</p>
+        <h2>2. Reporting infringement (takedown notice)</h2>
+        <p>If you believe content on ViewTube infringes your copyright, email <strong>support@viewtube.co.ke</strong> with: (a) identification of the copyrighted work; (b) the ViewTube link(s) to the infringing content; (c) your name, contact details, and relationship to the work; (d) a statement, made in good faith, that the use is not authorized by the owner, its agent, or the law; and (e) a statement that the information in your notice is accurate and, under penalty of perjury, that you are the owner or authorized to act for the owner. We remove or disable access to content that a valid notice identifies, and notify the uploader.</p>
+        <h2>3. Counter-notice</h2>
+        <p>If your content was removed and you believe the removal was mistaken or the use is permitted (for example, you hold a licence or the material is your own), you may send a counter-notice to the same address with your contact details, identification of the removed content, and a good-faith statement of why the removal was in error. We may restore content following a valid counter-notice unless the complainant initiates legal proceedings.</p>
+        <h2>4. Repeat infringers</h2>
+        <p>Accounts that receive repeated valid infringement notices are terminated. Deliberately fraudulent takedown notices may themselves attract liability, and we may ignore notices from senders who abuse the process.</p>
+        <h2>5. Downloads</h2>
+        <p>The download feature lets viewers save videos for personal, private viewing. Downloading a video does not transfer any rights: re-uploading, redistributing, or commercially exploiting downloaded content without the creator's permission is infringement.</p>
+        <h2>6. Rights holders in Kenya</h2>
+        <p>Rights holders may also pursue remedies through the Kenya Copyright Board (KECOBO). Nothing in this policy limits any rights available under law.</p>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- AUTH MODAL -->
@@ -810,9 +917,10 @@
     <div class="form-group"><input class="form-input" type="email" id="auth-email" placeholder="Email address" /></div>
     <div class="form-group"><input class="form-input" type="password" id="auth-password" placeholder="Password (min 6 characters)" /></div>
     <button class="btn btn-primary" style="width:100%;padding:12px;margin-bottom:10px;" id="auth-submit" onclick="emailAuth()">Sign In</button>
-    <p style="text-align:center;font-size:13px;margin:0;">
+    <p style="text-align:center;font-size:13px;margin:0 0 8px;">
       <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); toggleAuthMode()" id="auth-toggle">New here? Create an account</a>
     </p>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin:0;">By continuing you agree to our <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); closeModal('auth-modal'); showLegal('terms')">Terms</a> and <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); closeModal('auth-modal'); showLegal('privacy')">Privacy Policy</a>.</p>
   </div>
 </div>
 
@@ -2170,6 +2278,16 @@ function closeRecorder(showZone = true) {
   document.getElementById('rec-preview').srcObject = null;
   document.getElementById('upload-recorder').style.display = 'none';
   if (showZone) document.getElementById('drop-zone').style.display = '';
+}
+
+// ─── Legal pages ────────────────────────────────────────────────
+function showLegal(section) {
+  showPage('legal');
+  document.querySelectorAll('.legal-doc').forEach(d => d.style.display = 'none');
+  document.querySelectorAll('[id^=legal-tab-]').forEach(t => t.classList.remove('active'));
+  document.getElementById('legal-' + section).style.display = 'block';
+  document.getElementById('legal-tab-' + section).classList.add('active');
+  window.scrollTo(0, 0);
 }
 
 // ─── Theme (dark / light) ───────────────────────────────────────
