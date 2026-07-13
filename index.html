@@ -1117,7 +1117,7 @@ async function openVideo(id) {
       const vid = encodeURIComponent(v.cloudflareUid || v.id);
       wrap.innerHTML = `<iframe id="stream-frame" src="https://iframe.videodelivery.net/${vid}?autoplay=true" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen></iframe>`;
       document.getElementById('player-status').style.display = 'none';
-      // Honest view counting: 1 device = 1 view, only after 10s of real playback
+      // Honest view counting: 1 device = 1 view, after 4s of real playback (or 80% of ultra-short clips)
       viewTracked = false;
       try {
         streamPlayer = Stream(document.getElementById('stream-frame'));
@@ -1133,7 +1133,9 @@ async function openVideo(id) {
         streamPlayer.addEventListener('timeupdate', () => {
           const now = Date.now();
           if (now - lastSave > 5000) { lastSave = now; saveProgress(v.id, streamPlayer.currentTime, streamPlayer.duration || v.duration); }
-          if (!viewTracked && streamPlayer.currentTime >= 10) {
+          // View threshold: 4s, or 80% of the clip for videos shorter than 5s (so 3s reels still count)
+          const viewAt = Math.min(4, ((streamPlayer.duration || v.duration || 99) * 0.8));
+          if (!viewTracked && streamPlayer.currentTime >= viewAt) {
             viewTracked = true;
             api(`/videos/${encodeURIComponent(v.id)}/view`, { method: 'POST', body: { deviceId: DEVICE_ID } })
               .then(r => { if (r.counted) { currentVideo.views = (currentVideo.views || 0) + 1; document.getElementById('player-views').textContent = fmtNum(currentVideo.views) + ' views'; } })
