@@ -315,6 +315,16 @@
     .live-cred { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-family: monospace; font-size: 13px; word-break: break-all; margin-bottom: 12px; position: relative; }
     .live-cred .copy-btn { position: absolute; top: 8px; right: 8px; }
     .live-state { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+    /* reactions */
+    .reactions-bar { display: flex; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
+    .react-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid transparent; border-radius: 40px; padding: 7px 14px; cursor: pointer; font-size: 16px; color: var(--text); font-family: var(--font-body); transition: transform .12s, background .15s; }
+    .react-btn:hover { background: #3f3f3f; }
+    .react-btn.mine { background: rgba(62,166,255,0.15); border-color: var(--accent); }
+    .react-btn span.rc { font-size: 13px; color: var(--muted); }
+    .react-btn.pop { animation: reactpop .35s ease; }
+    @keyframes reactpop { 0%{transform:scale(1)} 40%{transform:scale(1.35) rotate(-6deg)} 100%{transform:scale(1)} }
+    /* watch progress on cards */
+    .watch-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: #f0b90b; border-radius: 0 2px 2px 0; }
   </style>
 </head>
 <body>
@@ -420,6 +430,10 @@
       <div class="cat-pill" onclick="setCategory(this,'Food')">🍕 Food</div>
     </div>
     <div id="home-error"></div>
+    <div id="continue-row-wrap" style="display:none;">
+      <div class="section-title">▶ Continue Watching</div>
+      <div class="video-grid" id="continue-grid" style="margin-bottom:32px;"></div>
+    </div>
     <div id="live-row-wrap" style="display:none;">
       <div class="section-title"><span class="live-badge"><span class="live-dot"></span> LIVE</span> Live Now</div>
       <div class="video-grid" id="live-grid" style="margin-bottom:32px;"></div>
@@ -470,11 +484,20 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
               Share
             </button>
+            <button class="action-btn" onclick="shareWhatsApp()" title="Share on WhatsApp">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.2c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.6-1.1-4.3-3.8-4.4-4-.1-.2-1.1-1.4-1.1-2.7 0-1.3.7-1.9.9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.8.8 1.9.1.1.1.3 0 .5-.3.6-.6.7-.4 1 .5.9 1.2 1.6 2 2.1.3.2.5.2.7-.1.2-.2.8-.9 1-1.2.2-.3.4-.2.7-.1.3.1 1.7.8 2 1 .3.2.5.2.5.4.1.1.1.7-.1 1.3z"/></svg>
+              WhatsApp
+            </button>
+            <button class="action-btn" id="download-btn" onclick="downloadVideo()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download
+            </button>
             <button class="action-btn" onclick="openTipModal()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
               Tip Creator
             </button>
           </div>
+          <div class="reactions-bar" id="reactions-bar"></div>
           <div class="channel-row">
             <div class="ch-avatar" id="player-ch-avatar">C</div>
             <div class="ch-info">
@@ -976,6 +999,7 @@ function showPage(name) {
   if (name !== 'golive' && livePoll) { clearInterval(livePoll); livePoll = null; }
   if (name !== 'golive' && camStream && !broadcasting) exitCamera();
   if (name === 'messages') loadConversations();
+  if (name === 'home') renderContinueRow();
   if (name === 'trending') loadTrending();
   if (name === 'subscriptions') loadSubscriptions();
   if (name === 'channel') loadChannel(currentUser?.uid);
@@ -1085,7 +1109,18 @@ async function openVideo(id) {
       viewTracked = false;
       try {
         streamPlayer = Stream(document.getElementById('stream-frame'));
+        // Resume where this device left off
+        const saved = getProgress(v.id);
+        if (saved?.t) {
+          const resumeAt = saved.t;
+          const seek = () => { try { streamPlayer.currentTime = resumeAt; } catch {} };
+          streamPlayer.addEventListener('loadeddata', seek);
+          setTimeout(seek, 1500); // fallback if loadeddata already fired
+        }
+        let lastSave = 0;
         streamPlayer.addEventListener('timeupdate', () => {
+          const now = Date.now();
+          if (now - lastSave > 5000) { lastSave = now; saveProgress(v.id, streamPlayer.currentTime, streamPlayer.duration || v.duration); }
           if (!viewTracked && streamPlayer.currentTime >= 10) {
             viewTracked = true;
             api(`/videos/${encodeURIComponent(v.id)}/view`, { method: 'POST', body: { deviceId: DEVICE_ID } })
@@ -1112,6 +1147,7 @@ async function openVideo(id) {
     document.getElementById('player-desc').textContent = v.description || 'No description.';
     document.getElementById('like-count').textContent = fmtNum(v.likes);
     document.getElementById('like-btn').classList.toggle('liked', !!v.liked);
+    renderReactions();
 
     const ch = v.channel || { displayName: v.channelName || 'Creator', subscriberCount: 0 };
     document.getElementById('player-ch-name').textContent = ch.displayName;
@@ -1858,6 +1894,90 @@ async function respondRequest(action) {
   } catch (e) { showToast(e.message, true); }
 }
 
+// ─── Downloads ──────────────────────────────────────────────────
+async function downloadVideo() {
+  if (!currentVideo) return;
+  const btn = document.getElementById('download-btn');
+  btn.disabled = true;
+  try {
+    const { state, url, percent } = await api(`/videos/${encodeURIComponent(currentVideo.id)}/download`, { method: 'POST' });
+    if (state === 'ready' && url) {
+      const a = document.createElement('a');
+      a.href = url; a.download = (currentVideo.title || 'viewtube-video') + '.mp4';
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast('⬇️ Download started');
+    } else {
+      showToast(`Preparing your download (${Math.round(percent)}%) — tap Download again in a moment`);
+    }
+  } catch (e) { showToast(e.message, true); }
+  finally { btn.disabled = false; }
+}
+
+// ─── WhatsApp share ─────────────────────────────────────────────
+function shareWhatsApp() {
+  if (!currentVideo) return;
+  const url = `${location.origin}${location.pathname}?v=${encodeURIComponent(currentVideo.id)}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(`🎬 ${currentVideo.title} — watch on ViewTube: ${url}`), '_blank');
+}
+
+// ─── Emoji reactions ────────────────────────────────────────────
+const REACTION_EMOJI = { fire: '🔥', laugh: '😂', love: '❤️', wow: '😮', clap: '👏' };
+function renderReactions() {
+  if (!currentVideo) return;
+  const counts = currentVideo.reactions || {};
+  document.getElementById('reactions-bar').innerHTML = Object.entries(REACTION_EMOJI).map(([type, emoji]) => `
+    <button class="react-btn ${currentVideo.myReaction === type ? 'mine' : ''}" onclick="react('${type}', this)">
+      ${emoji} <span class="rc">${fmtNum(Math.max(0, counts[type] || 0))}</span>
+    </button>`).join('');
+}
+
+async function react(type, btn) {
+  if (!currentVideo) return;
+  requireAuth(async () => {
+    btn.classList.add('pop');
+    try {
+      const { myReaction } = await api(`/videos/${encodeURIComponent(currentVideo.id)}/react`, { method: 'POST', body: { type }, authRequired: true });
+      const counts = currentVideo.reactions = currentVideo.reactions || {};
+      if (currentVideo.myReaction) counts[currentVideo.myReaction] = Math.max(0, (counts[currentVideo.myReaction] || 0) - 1);
+      if (myReaction) counts[myReaction] = (counts[myReaction] || 0) + 1;
+      currentVideo.myReaction = myReaction;
+      renderReactions();
+    } catch (e) { showToast(e.message, true); }
+  });
+}
+
+// ─── Resume watching ────────────────────────────────────────────
+function saveProgress(videoId, seconds, duration) {
+  try {
+    const p = JSON.parse(localStorage.getItem('vt_progress') || '{}');
+    if (seconds > 15 && duration && seconds < duration - 20) p[videoId] = { t: Math.floor(seconds), d: Math.floor(duration), at: Date.now() };
+    else delete p[videoId]; // finished or barely started — clear it
+    const entries = Object.entries(p).sort((a,b) => b[1].at - a[1].at).slice(0, 20);
+    localStorage.setItem('vt_progress', JSON.stringify(Object.fromEntries(entries)));
+  } catch {}
+}
+
+function getProgress(videoId) {
+  try { return JSON.parse(localStorage.getItem('vt_progress') || '{}')[videoId] || null; } catch { return null; }
+}
+
+function renderContinueRow() {
+  let progress = {}, history = [];
+  try {
+    progress = JSON.parse(localStorage.getItem('vt_progress') || '{}');
+    history = JSON.parse(localStorage.getItem('vt_history') || '[]');
+  } catch {}
+  const items = history.filter(h => progress[h.id]).slice(0, 4);
+  const wrap = document.getElementById('continue-row-wrap');
+  if (!items.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  document.getElementById('continue-grid').innerHTML = items.map(v => {
+    const p = progress[v.id];
+    const pct = p.d ? Math.min(100, Math.round(p.t / p.d * 100)) : 0;
+    return videoCardHTML(v).replace('</div>\n      <div class="video-info">', `<div class="watch-progress" style="width:${pct}%"></div></div>\n      <div class="video-info">`);
+  }).join('');
+}
+
 // ─── Init ───────────────────────────────────────────────────────
 (function init() {
   if (API_BASE_URL.includes('YOUR-API') || FIREBASE_CONFIG.apiKey.includes('YOUR_')) {
@@ -1866,6 +1986,7 @@ async function respondRequest(action) {
   }
   loadFeed(true);
   loadLiveRow();
+  renderContinueRow();
   setInterval(loadLiveRow, 60000);
   // Deep link: ?v=VIDEO_ID
   const vid = new URLSearchParams(location.search).get('v');

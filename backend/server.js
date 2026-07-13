@@ -380,16 +380,18 @@ app.get('/videos/:id', optionalAuth, wrap(async (req, res) => {
     } catch {}
   }
   // NOTE: views are no longer incremented on fetch — see POST /videos/:id/view
-  let liked = false, subscribed = false;
+  let liked = false, subscribed = false, myReaction = null;
   if (req.user) {
-    const [likeDoc, subDoc] = await Promise.all([
+    const [likeDoc, subDoc, reactDoc] = await Promise.all([
       db.collection('likes').doc(`${req.user.uid}_${doc.id}`).get(),
       db.collection('subscriptions').doc(`${req.user.uid}_${v.uploaderId}`).get(),
+      db.collection('reactions').doc(`${req.user.uid}_${doc.id}`).get(),
     ]);
     liked = likeDoc.exists; subscribed = subDoc.exists;
+    myReaction = reactDoc.exists ? reactDoc.data().type : null;
   }
   const channelDoc = await db.collection('users').doc(v.uploaderId).get();
-  res.json({ id: doc.id, ...v, liked, subscribed, channel: channelDoc.exists ? { id: channelDoc.id, displayName: channelDoc.data().displayName, subscriberCount: channelDoc.data().subscriberCount || 0, photoURL: channelDoc.data().photoURL || null } : null });
+  res.json({ id: doc.id, ...v, liked, subscribed, myReaction, channel: channelDoc.exists ? { id: channelDoc.id, displayName: channelDoc.data().displayName, subscriberCount: channelDoc.data().subscriberCount || 0, photoURL: channelDoc.data().photoURL || null } : null });
 }));
 
 app.get('/videos/:id/related', wrap(async (req, res) => {
@@ -401,6 +403,34 @@ app.get('/videos/:id/related', wrap(async (req, res) => {
     .where('category', '==', category)
     .orderBy('views', 'desc').limit(11).get();
   res.json({ videos: snap.docs.filter(d => d.id !== req.params.id).slice(0, 10).map(d => ({ id: d.id, ...d.data() })) });
+}));
+
+const REACTION_TYPES = ['fire', 'laugh', 'love', 'wow', 'clap'];
+
+app.post('/videos/:id/react', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const type = req.body.type;
+  if (!REACTION_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid reaction' });
+  const videoRef = db.collection('videos').doc(req.params.id);
+  const videoDoc = await videoRef.get();
+  if (!videoDoc.exists) return res.status(404).json({ error: 'Video not found' });
+  const reactRef = db.collection('reactions').doc(`${req.user.uid}_${req.params.id}`);
+  const result = await db.runTransaction(async tx => {
+    const existing = await tx.get(reactRef);
+    if (existing.exists && existing.data().type === type) {
+      // same reaction again = remove it
+      tx.delete(reactRef);
+      tx.update(videoRef, { [`reactions.${type}`]: admin.firestore.FieldValue.increment(-1) });
+      return null;
+    }
+    if (existing.exists) {
+      // switch reaction
+      tx.update(videoRef, { [`reactions.${existing.data().type}`]: admin.firestore.FieldValue.increment(-1) });
+    }
+    tx.set(reactRef, { userId: req.user.uid, videoId: req.params.id, type, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    tx.update(videoRef, { [`reactions.${type}`]: admin.firestore.FieldValue.increment(1) });
+    return type;
+  });
+  res.json({ myReaction: result });
 }));
 
 app.post('/videos/:id/like', authMiddleware, writeLimiter, wrap(async (req, res) => {
@@ -431,6 +461,27 @@ app.delete('/videos/:id', authMiddleware, writeLimiter, wrap(async (req, res) =>
   await ref.delete();
   await db.collection('users').doc(req.user.uid).set({ videoCount: admin.firestore.FieldValue.increment(-1) }, { merge: true });
   res.json({ success: true });
+}));
+
+// ═══════════════════════════════════════════════════════════════
+// DOWNLOADS — generate/fetch an MP4 for local saving
+// ═══════════════════════════════════════════════════════════════
+app.post('/videos/:id/download', writeLimiter, wrap(async (req, res) => {
+  const doc = await db.collection('videos').doc(req.params.id).get();
+  if (!doc.exists || doc.data().status !== 'live' || doc.data().visibility === 'private') {
+    return res.status(404).json({ error: 'Video not found' });
+  }
+  const uid = doc.data().cloudflareUid || doc.id;
+  // Enable downloads (idempotent — CF returns the existing download if already created)
+  try {
+    await axios.post(`${CF_BASE}/${encodeURIComponent(uid)}/downloads`, {}, { headers: cfHeaders });
+  } catch (e) {
+    if (e.response?.status !== 409) throw e; // 409 = already enabled
+  }
+  const dl = await axios.get(`${CF_BASE}/${encodeURIComponent(uid)}/downloads`, { headers: cfHeaders });
+  const d = dl.data.result?.default;
+  if (!d) return res.status(502).json({ error: 'Download unavailable for this video' });
+  res.json({ state: d.status, percent: d.percentComplete || 0, url: d.status === 'ready' ? d.url : null });
 }));
 
 // ═══════════════════════════════════════════════════════════════
