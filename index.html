@@ -1264,6 +1264,22 @@ async function postReply(parentId, input) {
   } catch (e) { showToast(e.message, true); }
 }
 
+function submitComment(e, el) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const text = el.value.trim();
+    if (!text || !currentVideo) return;
+    requireAuth(async () => {
+      try {
+        await api(`/videos/${encodeURIComponent(currentVideo.id)}/comments`, { method: 'POST', body: { text }, authRequired: true });
+        el.value = '';
+        loadComments(currentVideo.id);
+        showToast('Comment posted');
+      } catch (err) { showToast(err.message, true); }
+    });
+  }
+}
+
 async function likeComment(id, btn) {
   requireAuth(async () => {
     try {
