@@ -488,6 +488,18 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.2c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.6-1.1-4.3-3.8-4.4-4-.1-.2-1.1-1.4-1.1-2.7 0-1.3.7-1.9.9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.8.8 1.9.1.1.1.3 0 .5-.3.6-.6.7-.4 1 .5.9 1.2 1.6 2 2.1.3.2.5.2.7-.1.2-.2.8-.9 1-1.2.2-.3.4-.2.7-.1.3.1 1.7.8 2 1 .3.2.5.2.5.4.1.1.1.7-.1 1.3z"/></svg>
               WhatsApp
             </button>
+            <button class="action-btn" onclick="shareFacebook()" title="Share on Facebook">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg>
+              Facebook
+            </button>
+            <button class="action-btn" onclick="shareCopyOpen('tiktok')" title="Copy link and open TikTok">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 6.7a5 5 0 0 1-3.8-4.2V2h-3.4v13.6a2.9 2.9 0 1 1-2-2.7V9.4a6.3 6.3 0 1 0 5.4 6.2V8.9a8.3 8.3 0 0 0 4.4 1.3V6.8l-.6-.1z"/></svg>
+              TikTok
+            </button>
+            <button class="action-btn" onclick="shareCopyOpen('youtube')" title="Copy link and open YouTube">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23 7.2s-.2-1.6-.9-2.3c-.8-.9-1.8-.9-2.2-1C16.7 3.6 12 3.6 12 3.6s-4.7 0-7.9.3c-.4.1-1.4.1-2.2 1-.7.7-.9 2.3-.9 2.3S.8 9.1.8 11v1.8c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.8.9 1.9.8 2.4 1 1.7.2 7.7.3 7.7.3s4.7 0 7.9-.4c.4-.1 1.4-.1 2.2-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8zM9.8 14.9V8.5l6.1 3.2-6.1 3.2z"/></svg>
+              YouTube
+            </button>
             <button class="action-btn" id="download-btn" onclick="downloadVideo()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Download
@@ -1918,6 +1930,28 @@ function shareWhatsApp() {
   if (!currentVideo) return;
   const url = `${location.origin}${location.pathname}?v=${encodeURIComponent(currentVideo.id)}`;
   window.open('https://wa.me/?text=' + encodeURIComponent(`🎬 ${currentVideo.title} — watch on ViewTube: ${url}`), '_blank');
+}
+
+function videoShareUrl() {
+  return `${location.origin}${location.pathname}?v=${encodeURIComponent(currentVideo.id)}`;
+}
+
+function shareFacebook() {
+  if (!currentVideo) return;
+  window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(videoShareUrl()), '_blank', 'width=600,height=500');
+}
+
+// TikTok and YouTube have no link-share web intents — best possible flow:
+// copy the link, open the platform, tell the user to paste it.
+function shareCopyOpen(platform) {
+  if (!currentVideo) return;
+  const dest = platform === 'tiktok' ? 'https://www.tiktok.com/' : 'https://www.youtube.com/';
+  navigator.clipboard.writeText(videoShareUrl()).then(() => {
+    showToast(`🔗 Link copied — paste it in your ${platform === 'tiktok' ? 'TikTok caption or comment' : 'YouTube community post or description'}`);
+    setTimeout(() => window.open(dest, '_blank'), 900);
+  }).catch(() => {
+    showToast('Could not copy — use the Share button instead', true);
+  });
 }
 
 // ─── Emoji reactions ────────────────────────────────────────────
