@@ -200,10 +200,22 @@ app.post('/auth/sync', authMiddleware, wrap(async (req, res) => {
 app.get('/users/search', authMiddleware, wrap(async (req, res) => {
   const q = sanitizeText(req.query.q, 50).toLowerCase();
   if (!q) return res.json({ users: [] });
-  const snap = await db.collection('users')
-    .orderBy('displayNameLower').startAt(q).endAt(q + '\uf8ff').limit(10).get();
-  res.json({ users: snap.docs
+  // Prefix query on displayNameLower PLUS a scan fallback: orderBy silently excludes
+  // docs missing the field (users created before that field existed), so the scan
+  // catches them by matching displayName directly.
+  const [prefixSnap, scanSnap] = await Promise.all([
+    db.collection('users').orderBy('displayNameLower').startAt(q).endAt(q + '\uf8ff').limit(10).get(),
+    db.collection('users').limit(300).get(),
+  ]);
+  const seen = new Map();
+  prefixSnap.docs.forEach(d => seen.set(d.id, d));
+  scanSnap.docs.forEach(d => {
+    if (seen.has(d.id)) return;
+    if ((d.data().displayName || '').toLowerCase().includes(q)) seen.set(d.id, d);
+  });
+  res.json({ users: [...seen.values()]
     .filter(d => d.id !== req.user.uid)
+    .slice(0, 10)
     .map(d => ({ id: d.id, displayName: d.data().displayName || 'User' })) });
 }));
 
