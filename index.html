@@ -279,6 +279,8 @@
 
     /* ═══ MOBILE ═══ */
     .mobile-only { display: none; }
+    /* `hidden` must win over any display rule, including .mobile-only's !important */
+    [hidden] { display: none !important; }
     /* Desktop must explicitly hide mobile-only elements: .btn/.avatar set their own
        display values that would otherwise beat the plain `display:none` above. */
     @media (min-width: 901px) {
@@ -537,12 +539,12 @@
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
     View<span>Tube</span>
   </a>
-  <button class="btn btn-primary mobile-only" id="mobile-signin" onclick="openModal('auth-modal')" style="padding:6px 14px;font-size:13px;margin-left:auto;flex:0 0 auto;">Sign In</button>
-  <div class="avatar mobile-only" id="mobile-avatar" style="display:none;width:32px;height:32px;font-size:13px;flex:0 0 auto;margin-left:auto;" onclick="openMenuSheet()">U</div>
   <div class="nav-search">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="text" id="search-input" placeholder="Search videos, channels..." onkeydown="if(event.key==='Enter')runSearch(this.value)" />
   </div>
+  <button class="btn btn-primary mobile-only" id="mobile-signin" onclick="openModal('auth-modal')" style="padding:6px 14px;font-size:13px;flex:0 0 auto;">Sign In</button>
+  <div class="avatar mobile-only" id="mobile-avatar" hidden style="width:32px;height:32px;font-size:13px;flex:0 0 auto;" onclick="openMenuSheet()"></div>
   <div class="nav-right">
     <button class="btn btn-upload" onclick="requireAuth(() => showPage('upload'))">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1443,8 +1445,8 @@ function refreshNavAvatar() {
   const mIn = document.getElementById('mobile-signin');
   if (mAv && mIn) {
     mAv.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
-    mAv.style.display = currentUser ? 'flex' : 'none';
-    mIn.style.display = currentUser ? 'none' : 'inline-flex';
+    mAv.hidden = !currentUser;
+    mIn.hidden = !!currentUser;
   }
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
@@ -1515,8 +1517,8 @@ auth.onAuthStateChanged(async user => {
     myProfile = null;
     isAdminUser = false;
     const mAv = document.getElementById('mobile-avatar'), mIn = document.getElementById('mobile-signin');
-    if (mAv) mAv.style.display = 'none';
-    if (mIn) mIn.style.display = 'inline-flex';
+    if (mAv) { mAv.hidden = true; mAv.innerHTML = ''; }
+    if (mIn) mIn.hidden = false;
     if (notifPoll) { clearInterval(notifPoll); notifPoll = null; }
     if (msgPoll) { clearInterval(msgPoll); msgPoll = null; }
     ['inbox-badge','bn-msg-badge','notif-badge','bn-notif-badge'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
