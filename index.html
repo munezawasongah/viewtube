@@ -307,6 +307,25 @@
       /* Category pill strip is desktop-only — the drawer handles categories on mobile */
       .categories { display: none; }
 
+      /* Channel header: stack vertically, no negative overlap burying the name */
+      .channel-banner { height: 110px; margin-bottom: 0; }
+      .channel-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+        padding: 0 0 20px;
+        margin-top: -34px;                 /* avatar peeks over the banner, header does not */
+      }
+      .channel-big-avatar { width: 68px; height: 68px; font-size: 26px; margin-top: 0; }
+      .channel-header-info { width: 100%; padding-bottom: 0; }
+      .channel-header-info h1 {
+        font-size: 20px; line-height: 1.3;
+        word-break: break-word; overflow-wrap: anywhere;  /* long names wrap instead of truncating */
+      }
+      .channel-header-info p { font-size: 13px; line-height: 1.5; word-break: break-word; }
+      .channel-header .btn, .channel-header .btn-subscribe { width: 100%; max-width: 260px; padding: 10px 20px; }
+
       /* Nav: menu + logo + search + essential icons */
       nav { padding: 0 12px; gap: 8px; }
       #menu-btn { padding: 8px 10px; }
