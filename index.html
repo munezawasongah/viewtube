@@ -334,14 +334,6 @@
     #mini-player button { background: var(--surface); border: none; color: var(--text); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 14px; flex-shrink: 0; }
     #mini-player button:hover { background: #3f3f3f; }
     body.light #mini-player button:hover { background: #e5e5e5; }
-    /* reactions */
-    .reactions-bar { display: flex; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
-    .react-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid transparent; border-radius: 40px; padding: 7px 14px; cursor: pointer; font-size: 16px; color: var(--text); font-family: var(--font-body); transition: transform .12s, background .15s; }
-    .react-btn:hover { background: #3f3f3f; }
-    .react-btn.mine { background: rgba(62,166,255,0.15); border-color: var(--accent); }
-    .react-btn span.rc { font-size: 13px; color: var(--muted); }
-    .react-btn.pop { animation: reactpop .35s ease; }
-    @keyframes reactpop { 0%{transform:scale(1)} 40%{transform:scale(1.35) rotate(-6deg)} 100%{transform:scale(1)} }
     /* watch progress on cards */
     .watch-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: #f0b90b; border-radius: 0 2px 2px 0; }
     /* ─── LIGHT MODE ─── */
@@ -538,14 +530,6 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg>
               Facebook
             </button>
-            <button class="action-btn" onclick="shareCopyOpen('tiktok')" title="Copy link and open TikTok">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 6.7a5 5 0 0 1-3.8-4.2V2h-3.4v13.6a2.9 2.9 0 1 1-2-2.7V9.4a6.3 6.3 0 1 0 5.4 6.2V8.9a8.3 8.3 0 0 0 4.4 1.3V6.8l-.6-.1z"/></svg>
-              TikTok
-            </button>
-            <button class="action-btn" onclick="shareCopyOpen('youtube')" title="Copy link and open YouTube">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23 7.2s-.2-1.6-.9-2.3c-.8-.9-1.8-.9-2.2-1C16.7 3.6 12 3.6 12 3.6s-4.7 0-7.9.3c-.4.1-1.4.1-2.2 1-.7.7-.9 2.3-.9 2.3S.8 9.1.8 11v1.8c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.8.9 1.9.8 2.4 1 1.7.2 7.7.3 7.7.3s4.7 0 7.9-.4c.4-.1 1.4-.1 2.2-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8zM9.8 14.9V8.5l6.1 3.2-6.1 3.2z"/></svg>
-              YouTube
-            </button>
             <button class="action-btn" id="download-btn" onclick="downloadVideo()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Download
@@ -558,7 +542,6 @@
               🎧 Audio Mode
             </button>
           </div>
-          <div class="reactions-bar" id="reactions-bar"></div>
           <div class="channel-row">
             <div class="ch-avatar" id="player-ch-avatar">C</div>
             <div class="ch-info">
@@ -1353,7 +1336,6 @@ async function openVideo(id) {
     document.getElementById('player-desc').textContent = v.description || 'No description.';
     document.getElementById('like-count').textContent = fmtNum(v.likes);
     document.getElementById('like-btn').classList.toggle('liked', !!v.liked);
-    renderReactions();
     applyAudioModeUI();
 
     const ch = v.channel || { displayName: v.channelName || 'Creator', subscriberCount: 0 };
@@ -2152,44 +2134,6 @@ function shareFacebook() {
   window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(videoShareUrl()), '_blank', 'width=600,height=500');
 }
 
-// TikTok and YouTube have no link-share web intents — best possible flow:
-// copy the link, open the platform, tell the user to paste it.
-function shareCopyOpen(platform) {
-  if (!currentVideo) return;
-  const dest = platform === 'tiktok' ? 'https://www.tiktok.com/' : 'https://www.youtube.com/';
-  navigator.clipboard.writeText(videoShareUrl()).then(() => {
-    showToast(`🔗 Link copied — paste it in your ${platform === 'tiktok' ? 'TikTok caption or comment' : 'YouTube community post or description'}`);
-    setTimeout(() => window.open(dest, '_blank'), 900);
-  }).catch(() => {
-    showToast('Could not copy — use the Share button instead', true);
-  });
-}
-
-// ─── Emoji reactions ────────────────────────────────────────────
-const REACTION_EMOJI = { fire: '🔥', laugh: '😂', love: '❤️', wow: '😮', clap: '👏' };
-function renderReactions() {
-  if (!currentVideo) return;
-  const counts = currentVideo.reactions || {};
-  document.getElementById('reactions-bar').innerHTML = Object.entries(REACTION_EMOJI).map(([type, emoji]) => `
-    <button class="react-btn ${currentVideo.myReaction === type ? 'mine' : ''}" onclick="react('${type}', this)">
-      ${emoji} <span class="rc">${fmtNum(Math.max(0, counts[type] || 0))}</span>
-    </button>`).join('');
-}
-
-async function react(type, btn) {
-  if (!currentVideo) return;
-  requireAuth(async () => {
-    btn.classList.add('pop');
-    try {
-      const { myReaction } = await api(`/videos/${encodeURIComponent(currentVideo.id)}/react`, { method: 'POST', body: { type }, authRequired: true });
-      const counts = currentVideo.reactions = currentVideo.reactions || {};
-      if (currentVideo.myReaction) counts[currentVideo.myReaction] = Math.max(0, (counts[currentVideo.myReaction] || 0) - 1);
-      if (myReaction) counts[myReaction] = (counts[myReaction] || 0) + 1;
-      currentVideo.myReaction = myReaction;
-      renderReactions();
-    } catch (e) { showToast(e.message, true); }
-  });
-}
 
 // ─── Resume watching ────────────────────────────────────────────
 function saveProgress(videoId, seconds, duration) {
