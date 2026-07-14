@@ -243,6 +243,30 @@
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
 
     /* ─── RESPONSIVE ─── */
+
+    /* ─── MOBILE MENU SHEET (replaces the drawer) ─── */
+    #menu-sheet-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 998; }
+    #menu-sheet-bg.open { display: block; }
+    #menu-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      max-height: 82dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      background: var(--card); border-top: 1px solid var(--border);
+      border-radius: 18px 18px 0 0; z-index: 999;
+      transform: translateY(100%); transition: transform .28s ease;
+      padding: 8px 0 24px;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+    }
+    #menu-sheet.open { transform: translateY(0); }
+    #menu-sheet .ms-grip { width: 40px; height: 4px; background: var(--border); border-radius: 3px; margin: 8px auto 12px; }
+    #menu-sheet .ms-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; padding: 14px 20px 6px; font-weight: 600; }
+    #menu-sheet a { display: flex; align-items: center; gap: 14px; padding: 13px 20px; color: var(--text); font-size: 15px; cursor: pointer; text-decoration: none; }
+    #menu-sheet a:active { background: var(--surface); }
+    #menu-sheet hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+    #menu-sheet .ms-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 20px 10px; }
+    #menu-sheet .ms-chips span { padding: 7px 14px; border-radius: 40px; background: var(--surface); border: 1px solid var(--border); font-size: 13px; cursor: pointer; }
+    #menu-sheet .ms-foot { padding: 16px 20px 4px; font-size: 11px; color: var(--muted); }
+    @media (min-width: 901px) { #menu-sheet, #menu-sheet-bg { display: none !important; } }
+
     /* ═══ MOBILE ═══ */
     .mobile-only { display: none; }
     .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 299; }
@@ -442,9 +466,6 @@
 <body>
 
 <nav>
-  <button class="btn btn-ghost mobile-only" id="menu-btn" onclick="toggleSidebar()" title="Menu" style="padding:8px 10px;">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
   <a class="nav-logo" href="#" onclick="event.preventDefault(); showPage('home')">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
     View<span>Tube</span>
@@ -1214,11 +1235,50 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     Messages
   </a>
-  <a id="bn-channel" onclick="requireAuth(() => showPage('channel'))">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    You
+  <a id="bn-menu" onclick="openMenuSheet()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    Menu
   </a>
 </nav>
+
+<!-- Mobile menu sheet -->
+<div id="menu-sheet-bg" onclick="closeMenuSheet()"></div>
+<div id="menu-sheet">
+  <div class="ms-grip"></div>
+
+  <div class="ms-label">You</div>
+  <a onclick="menuGo(() => requireAuth(() => showPage('channel')))">👤 Your Channel</a>
+  <a onclick="menuGo(() => requireAuth(() => showPage('studio')))">📊 Studio</a>
+  <a onclick="menuGo(() => requireAuth(() => showPage('golive')))">🔴 Go Live</a>
+  <a onclick="menuGo(() => showPage('history'))">🕐 History</a>
+  <a onclick="menuGo(() => requireAuth(() => showPage('subscriptions')))">👥 Subscriptions</a>
+  <hr>
+
+  <div class="ms-label">Categories</div>
+  <div class="ms-chips">
+    <span onclick="menuGo(() => filterCategory('Music'))">Music</span>
+    <span onclick="menuGo(() => filterCategory('Gaming'))">Gaming</span>
+    <span onclick="menuGo(() => filterCategory('Tech'))">Tech</span>
+    <span onclick="menuGo(() => filterCategory('Education'))">Education</span>
+    <span onclick="menuGo(() => filterCategory('Sports'))">Sports</span>
+    <span onclick="menuGo(() => filterCategory('Comedy'))">Comedy</span>
+  </div>
+  <hr>
+
+  <div class="ms-label">More</div>
+  <a onclick="menuGo(() => showPage('advertise'))">📣 Advertise</a>
+  <a onclick="toggleTheme()">🌓 Switch Theme</a>
+  <a id="ms-signout" onclick="menuGo(() => signOut())" style="display:none;">🚪 Sign Out</a>
+  <a id="ms-signin" onclick="menuGo(() => openModal('auth-modal'))">🔑 Sign In</a>
+  <hr>
+
+  <div class="ms-label">Legal</div>
+  <a onclick="menuGo(() => showLegal('privacy'))" style="font-size:13px;">Privacy Policy</a>
+  <a onclick="menuGo(() => showLegal('terms'))" style="font-size:13px;">Terms of Service</a>
+  <a onclick="menuGo(() => showLegal('safety'))" style="font-size:13px;">Safety Guidelines</a>
+  <a onclick="menuGo(() => showLegal('copyright'))" style="font-size:13px;">Copyright Policy</a>
+  <div class="ms-foot">© 2026 Jatelo Technologies</div>
+</div>
 
 <!-- Mini player (background audio) -->
 <div id="mini-player">
@@ -1418,6 +1478,7 @@ document.addEventListener('click', e => {
 // ─── Navigation ─────────────────────────────────────────────────
 function showPage(name) {
   closeSidebar();
+  closeMenuSheet();
   syncBottomNav(name);
   if (name !== 'messages') document.body.classList.remove('chat-open');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2768,6 +2829,20 @@ async function setAdStatus(id, status) {
 }
 
 // ─── Mobile navigation ──────────────────────────────────────────
+function openMenuSheet() {
+  document.getElementById('menu-sheet').classList.add('open');
+  document.getElementById('menu-sheet-bg').classList.add('open');
+  document.body.classList.add('drawer-open');
+  // reflect auth state
+  document.getElementById('ms-signout').style.display = currentUser ? 'flex' : 'none';
+  document.getElementById('ms-signin').style.display = currentUser ? 'none' : 'flex';
+}
+function closeMenuSheet() {
+  document.getElementById('menu-sheet').classList.remove('open');
+  document.getElementById('menu-sheet-bg').classList.remove('open');
+  document.body.classList.remove('drawer-open');
+}
+function menuGo(fn) { closeMenuSheet(); setTimeout(fn, 60); }
 function toggleSidebar() {
   const open = document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-backdrop').classList.toggle('open', open);
