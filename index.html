@@ -522,7 +522,10 @@
     <button class="btn btn-primary" id="signin-btn" onclick="openModal('auth-modal')">Sign In</button>
     <div class="avatar" id="nav-avatar" style="display:none;" onclick="toggleUserMenu()" title="Account">U</div>
     <div id="notif-panel" style="display:none; position:absolute; top:56px; right:64px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); z-index:300; width:340px; max-height:440px; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
-      <div style="padding:14px 16px; font-weight:700; font-size:15px; border-bottom:1px solid var(--border);">Notifications</div>
+      <div style="padding:14px 16px; border-bottom:1px solid var(--border);">
+        <div style="font-weight:700; font-size:15px;">Notifications</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">Messages appear in your <a style="color:var(--accent);cursor:pointer;" onclick="document.getElementById('notif-panel').style.display='none'; requireAuth(() => showPage('messages'))">inbox</a></div>
+      </div>
       <div id="notif-list"><div class="chat-empty" style="padding:30px;">No notifications yet</div></div>
     </div>
     <div id="user-menu" style="display:none; position:absolute; top:56px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:8px; z-index:300; min-width:180px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
@@ -2737,7 +2740,7 @@ async function loadNotifications(openPanel) {
     badge.style.display = unread > 0 ? 'block' : 'none';
     badge.textContent = unread > 9 ? '9+' : unread;
     if (openPanel) {
-      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', message_request: '✉️', message: '✉️', ad_enquiry: '📣' };
+      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', ad_enquiry: '📣' };
       document.getElementById('notif-list').innerHTML = notifications.length ? notifications.map(n => `
         <div class="chat-item" style="${n.isNew ? 'background:rgba(62,166,255,0.07);' : ''}" onclick="openNotification('${esc(n.type)}','${esc(n.refId || '')}')">
           <div class="ci-name">${icons[n.type] || '🔔'} ${esc(n.text)}</div>
@@ -2765,7 +2768,6 @@ function toggleNotifPanel() {
 function openNotification(type, refId) {
   document.getElementById('notif-panel').style.display = 'none';
   if (type === 'comment' || type === 'tip') { if (refId) openVideo(refId); }
-  else if (type === 'message_request' || type === 'message') { if (refId) openDM(refId); else showPage('messages'); }
   else if (type === 'subscriber') { showPage('channel'); }
   else if (type === 'ad_enquiry') { showPage('advertise'); }
 }

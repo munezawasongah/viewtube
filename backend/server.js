@@ -1000,7 +1000,6 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     update.status = 'pending';
     update.requesterId = req.user.uid;
     update.createdAt = admin.firestore.FieldValue.serverTimestamp();
-    notify(otherUid, 'message_request', `${senderName} sent you a message request`, req.user.uid);
   } else {
     const c = convoDoc.data();
     const status = c.status || 'accepted'; // conversations from before this feature count as accepted
@@ -1010,8 +1009,8 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     }
     // Receiver replying to a pending/declined request = implicit accept
     if (status !== 'accepted' && !isRequester) update.status = 'accepted';
-    // Notify on every subsequent message (this was missing entirely)
-    notify(otherUid, 'message', `${senderName}: ${text.slice(0, 60)}`, req.user.uid);
+    // NOTE: no bell notification for messages — the inbox badge (unread counter
+    // below) is the message channel. Keeping both would double-notify.
   }
 
   // Per-recipient unread counter drives the Messages badge.
