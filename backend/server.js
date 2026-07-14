@@ -43,7 +43,11 @@ const db = admin.firestore();
 // ─── App setup ──────────────────────────────────────────────────
 const app = express();
 app.set('trust proxy', 1); // Railway/most PaaS run behind a proxy
-app.use(helmet());
+app.use(helmet({
+  // Images are served from this API but embedded on the frontend domain.
+  // Helmet's default (same-origin) makes the browser block them outright.
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
@@ -834,6 +838,8 @@ app.get('/img/:id', wrap(async (req, res) => {
   const { mime, data } = doc.data();
   res.set('Content-Type', mime);
   res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');  // allow embedding on the frontend domain
+  res.set('Access-Control-Allow-Origin', '*');              // images are public by design
   res.send(Buffer.from(data, 'base64'));
 }));
 
