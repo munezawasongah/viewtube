@@ -1737,6 +1737,12 @@ function renderPage(name) {
   if (name !== 'golive' && livePoll) { clearInterval(livePoll); livePoll = null; }
   if (name !== 'golive' && camStream && !broadcasting) exitCamera();
   if (name !== 'upload' && recStream) closeRecorder();
+  loadPageData(name);
+}
+
+// Fetch a page's data. Split out of renderPage() so a refresh can load data for the
+// already-visible page without re-rendering it (which would cause a flash).
+function loadPageData(name) {
   if (name === 'messages') loadConversations();
   if (name === 'home') renderContinueRow();
   if (name === 'advertise') loadAdEnquiries();
@@ -3394,13 +3400,24 @@ window.addEventListener('popstate', (e) => {
 });
 
 // ─── Init ───────────────────────────────────────────────────────
+// Runs IMMEDIATELY at parse time — before init(), before any paint. This is what
+// stops the home page flashing for a moment on refresh.
+const params = new URLSearchParams(location.search);
+const deepVideo = params.get('v');
+const deepPage = params.get('p');
+const startPage = deepVideo ? 'player' : (deepPage || 'home');
+
+if (startPage !== 'home') {
+  const target = document.getElementById('page-' + startPage);
+  if (target) {
+    document.getElementById('page-home')?.classList.remove('active');
+    target.classList.add('active');
+  }
+}
+
 (function init() {
-  // Restore the page from the URL so a refresh (or a shared link) lands correctly
-  const params = new URLSearchParams(location.search);
-  const deepVideo = params.get('v');
-  const deepPage = params.get('p');
-  const startPage = deepVideo ? 'player' : (deepPage || 'home');
   history.replaceState({ page: startPage, videoId: deepVideo || undefined }, '', location.pathname + location.search);
+  syncBottomNav(startPage);
   try { applyTheme(localStorage.getItem('vt_theme') || 'dark'); } catch {}
   if (API_BASE_URL.includes('YOUR-API') || FIREBASE_CONFIG.apiKey.includes('YOUR_')) {
     document.getElementById('home-error').innerHTML =
@@ -3409,19 +3426,22 @@ window.addEventListener('popstate', (e) => {
   loadFeed(true);
   loadLiveRow();
   renderContinueRow();
-  // Deep link / refresh restore
+  // The correct page is ALREADY visible (set at parse time above). Now just load its
+  // data — no re-render, so there is no flash back to home.
   if (deepVideo) {
     openVideo(deepVideo, { fromPop: true });
   } else if (deepPage && document.getElementById('page-' + deepPage)) {
-    // auth-gated pages wait for Firebase to report the user
     const gated = ['messages', 'studio', 'upload', 'golive', 'subscriptions', 'channel'];
     if (gated.includes(deepPage)) {
+      // Auth-gated: wait for Firebase to confirm the session, THEN load the data.
+      // The page is already on screen, so the user never sees home.
       const stop = firebase.auth().onAuthStateChanged(u => {
         stop();
-        if (u) renderPage(deepPage); else renderPage('home');
+        if (u) loadPageData(deepPage);
+        else showPage('home');   // genuinely not signed in → fall back
       });
     } else {
-      renderPage(deepPage);
+      loadPageData(deepPage);
     }
   }
   setInterval(loadLiveRow, 60000);
