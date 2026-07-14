@@ -963,6 +963,7 @@ app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
   const convo = convoDoc.exists ? convoDoc.data() : null;
   // Reading the thread marks it read for this user
   if (convo && (convo.unread?.[req.user.uid] || 0) > 0) {
+    // update() resolves dotted paths — correct here (unlike set(), see POST /messages)
     db.collection('conversations').doc(id).update({ [`unread.${req.user.uid}`]: 0 }).catch(() => {});
   }
   res.json({
@@ -1013,9 +1014,13 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     notify(otherUid, 'message', `${senderName}: ${text.slice(0, 60)}`, req.user.uid);
   }
 
-  // Per-recipient unread counter drives the Messages badge
-  update[`unread.${otherUid}`] = admin.firestore.FieldValue.increment(1);
-  update[`unread.${req.user.uid}`] = 0;
+  // Per-recipient unread counter drives the Messages badge.
+  // NOTE: dotted keys ("unread.uid") are literal field names in set() — only update()
+  // resolves them as paths. Use a nested object so merge writes into the map correctly.
+  update.unread = {
+    [otherUid]: admin.firestore.FieldValue.increment(1),
+    [req.user.uid]: 0,
+  };
 
   await convoRef.set(update, { merge: true });
   const ref = await db.collection('messages').add({
