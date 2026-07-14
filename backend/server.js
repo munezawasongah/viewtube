@@ -978,7 +978,12 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
   const otherUid = req.params.otherUid;
   if (otherUid === req.user.uid) return res.status(400).json({ error: 'Cannot message yourself' });
   const text = sanitizeText(req.body.text, 2000);
-  if (!text) return res.status(400).json({ error: 'Message cannot be empty' });
+  let imageUrl = null;
+  if (req.body.imageId) {
+    imageUrl = await verifyOwnImage(req.body.imageId, req.user.uid);
+    if (!imageUrl) return res.status(400).json({ error: 'Invalid image' });
+  }
+  if (!text && !imageUrl) return res.status(400).json({ error: 'Message cannot be empty' });
   const otherDoc = await db.collection('users').doc(otherUid).get();
   if (!otherDoc.exists) return res.status(404).json({ error: 'User not found' });
   const id = convoId(req.user.uid, otherUid);
@@ -987,7 +992,7 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
 
   const update = {
     participants: [req.user.uid, otherUid],
-    lastMessage: text.slice(0, 120),
+    lastMessage: (text || '📷 Photo').slice(0, 120),
     lastSenderId: req.user.uid,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
@@ -1026,6 +1031,7 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     conversationId: id,
     senderId: req.user.uid,
     text,
+    imageUrl,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   res.json({ id: ref.id });
