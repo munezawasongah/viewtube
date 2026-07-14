@@ -307,7 +307,7 @@ app.post('/videos/:uid/publish', authMiddleware, writeLimiter, wrap(async (req, 
 
   let customThumb = null;
   if (req.body.thumbImageId) {
-    customThumb = await verifyOwnImage(req.body.thumbImageId, req.user.uid);
+    customThumb = await verifyOwnImage(req.body.thumbImageId, req.user.uid, req);
     if (!customThumb) return res.status(400).json({ error: 'Invalid thumbnail image' });
   }
   await videoRef.update({
@@ -693,12 +693,12 @@ app.put('/users/profile', authMiddleware, writeLimiter, wrap(async (req, res) =>
   }
   if (req.body.bio !== undefined) update.bio = sanitizeText(req.body.bio, 1000);
   if (req.body.photoImageId !== undefined) {
-    const url = await verifyOwnImage(req.body.photoImageId, req.user.uid);
+    const url = await verifyOwnImage(req.body.photoImageId, req.user.uid, req);
     if (req.body.photoImageId && !url) return res.status(400).json({ error: 'Invalid profile image' });
     update.photoURL = url;
   }
   if (req.body.coverImageId !== undefined) {
-    const url = await verifyOwnImage(req.body.coverImageId, req.user.uid);
+    const url = await verifyOwnImage(req.body.coverImageId, req.user.uid, req);
     if (req.body.coverImageId && !url) return res.status(400).json({ error: 'Invalid cover image' });
     update.coverURL = url;
   }
@@ -825,8 +825,7 @@ app.post('/images', authMiddleware, writeLimiter, wrap(async (req, res) => {
     ownerId: req.user.uid, mime, data,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-  const base = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
-  res.json({ id: ref.id, url: `${base}/img/${ref.id}` });
+  res.json({ id: ref.id, url: `${apiBase(req)}/img/${ref.id}` });
 }));
 
 app.get('/img/:id', wrap(async (req, res) => {
@@ -838,12 +837,17 @@ app.get('/img/:id', wrap(async (req, res) => {
   res.send(Buffer.from(data, 'base64'));
 }));
 
-async function verifyOwnImage(imageId, uid) {
+function apiBase(req) {
+  // Always absolute: API_URL if set, otherwise derive from the actual request.
+  // A relative URL would resolve against the FRONTEND domain and 404.
+  return process.env.API_URL || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
+}
+
+async function verifyOwnImage(imageId, uid, req) {
   if (!imageId) return null;
   const doc = await db.collection('images').doc(String(imageId)).get();
   if (!doc.exists || doc.data().ownerId !== uid) return null;
-  const base = process.env.API_URL || '';
-  return `${base}/img/${doc.id}`;
+  return `${apiBase(req)}/img/${doc.id}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -966,11 +970,12 @@ app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
     // update() resolves dotted paths — correct here (unlike set(), see POST /messages)
     db.collection('conversations').doc(id).update({ [`unread.${req.user.uid}`]: 0 }).catch(() => {});
   }
+  const fixImg = u => (!u ? null : (/^https?:\/\//i.test(u) ? u : `${apiBase(req)}${u.startsWith('/') ? '' : '/'}${u}`));
   res.json({
     otherName: otherDoc.exists ? otherDoc.data().displayName || 'User' : 'User',
     status: convo ? (convo.status || 'accepted') : 'new',
     requesterId: convo?.requesterId || null,
-    messages: snap.docs.map(d => ({ id: d.id, ...d.data() })),
+    messages: snap.docs.map(d => { const m = { id: d.id, ...d.data() }; m.imageUrl = fixImg(m.imageUrl); return m; }),
   });
 }));
 
@@ -980,7 +985,7 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
   const text = sanitizeText(req.body.text, 2000);
   let imageUrl = null;
   if (req.body.imageId) {
-    imageUrl = await verifyOwnImage(req.body.imageId, req.user.uid);
+    imageUrl = await verifyOwnImage(req.body.imageId, req.user.uid, req);
     if (!imageUrl) return res.status(400).json({ error: 'Invalid image' });
   }
   if (!text && !imageUrl) return res.status(400).json({ error: 'Message cannot be empty' });
