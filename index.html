@@ -1268,19 +1268,19 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     Home
   </a>
-  <a id="bn-notifs" onclick="openNotifSheet()" style="position:relative;">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-    Alerts
-    <span id="bn-notif-badge" style="display:none;position:absolute;top:6px;right:24%;background:var(--accent2);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;line-height:15px;text-align:center;padding:0 3px;">0</span>
+  <a id="bn-messages" onclick="requireAuth(() => showPage('messages'))" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Messages
+    <span id="bn-msg-badge" style="display:none;position:absolute;top:6px;right:22%;background:var(--accent2);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;line-height:15px;text-align:center;padding:0 3px;">0</span>
   </a>
   <a id="bn-upload" onclick="requireAuth(() => showPage('upload'))">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
     Upload
   </a>
-  <a id="bn-messages" onclick="requireAuth(() => showPage('messages'))" style="position:relative;">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    Messages
-    <span id="bn-msg-badge" style="display:none;position:absolute;top:6px;right:22%;background:var(--accent2);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;line-height:15px;text-align:center;padding:0 3px;">0</span>
+  <a id="bn-notifs" onclick="openNotifSheet()" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Notifications
+    <span id="bn-notif-badge" style="display:none;position:absolute;top:6px;right:18%;background:var(--accent2);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;line-height:15px;text-align:center;padding:0 3px;">0</span>
   </a>
   <a id="bn-menu" onclick="openMenuSheet()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
