@@ -1536,8 +1536,13 @@ function showToast(msg, isError) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); pushOverlayState(id); }
+function closeModal(id, fromPop) {
+  const el = document.getElementById(id);
+  const wasOpen = el.classList.contains('open');
+  el.classList.remove('open');
+  if (wasOpen && !fromPop && history.state?.overlay === id) history.back();
+}
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
 // ─── API client ─────────────────────────────────────────────────
@@ -1661,9 +1666,9 @@ function showPage(name, opts = {}) {
 
 function renderPage(name) {
   closeSidebar();
-  closeMenuSheet();
-  closeNotifSheet();
-  closeAccountSheet();
+  closeMenuSheet(true);      // true = mid-navigation, don't touch history
+  closeNotifSheet(true);
+  closeAccountSheet(true);
   syncBottomNav(name);
   if (name !== 'messages') document.body.classList.remove('chat-open');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2984,15 +2989,21 @@ function openNotifSheet() {
     document.getElementById('notif-sheet').classList.add('open');
     document.getElementById('notif-sheet-bg').classList.add('open');
     document.body.classList.add('drawer-open');
+    pushOverlayState('notif-sheet');
     await loadNotifications(true);
     markNotifsRead();
   });
 }
 
-function closeNotifSheet() {
-  document.getElementById('notif-sheet').classList.remove('open');
+function closeNotifSheet(fromPop) {
+  const el = document.getElementById('notif-sheet');
+  const wasOpen = el.classList.contains('open');
+  el.classList.remove('open');
   document.getElementById('notif-sheet-bg').classList.remove('open');
   document.body.classList.remove('drawer-open');
+  // Closing by tap must consume the history entry we pushed on open,
+  // or the stack fills with stale overlay entries.
+  if (wasOpen && !fromPop && history.state?.overlay === 'notif-sheet') history.back();
 }
 
 function toggleNotifPanel() {
@@ -3134,6 +3145,7 @@ async function setAdStatus(id, status) {
 // ─── Mobile navigation ──────────────────────────────────────────
 function openAccountSheet() {
   requireAuth(() => {
+    pushOverlayState('acct-sheet');
     document.getElementById('acct-sheet-avatar').innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
     document.getElementById('acct-sheet-name').textContent = myProfile?.displayName || 'Your account';
     document.getElementById('acct-sheet-handle').textContent = myProfile?.username ? '@' + myProfile.username : '';
@@ -3142,28 +3154,40 @@ function openAccountSheet() {
     document.body.classList.add('drawer-open');
   });
 }
-function closeAccountSheet() {
-  document.getElementById('acct-sheet').classList.remove('open');
+function closeAccountSheet(fromPop) {
+  const el = document.getElementById('acct-sheet');
+  const wasOpen = el.classList.contains('open');
+  el.classList.remove('open');
   document.getElementById('acct-sheet-bg').classList.remove('open');
   document.body.classList.remove('drawer-open');
+  // Closing by tap must consume the history entry we pushed on open,
+  // or the stack fills with stale overlay entries.
+  if (wasOpen && !fromPop && history.state?.overlay === 'acct-sheet') history.back();
 }
-function acctGo(fn) { closeAccountSheet(); setTimeout(fn, 60); }
+function acctGo(fn) { closeAccountSheet(); setTimeout(fn, 90); }
 
 function openMenuSheet() {
   document.getElementById('menu-sheet').classList.add('open');
   document.getElementById('menu-sheet-bg').classList.add('open');
   document.body.classList.add('drawer-open');
+  pushOverlayState('menu-sheet');
 }
-function closeMenuSheet() {
-  document.getElementById('menu-sheet').classList.remove('open');
+function closeMenuSheet(fromPop) {
+  const el = document.getElementById('menu-sheet');
+  const wasOpen = el.classList.contains('open');
+  el.classList.remove('open');
   document.getElementById('menu-sheet-bg').classList.remove('open');
   document.body.classList.remove('drawer-open');
+  // Closing by tap must consume the history entry we pushed on open,
+  // or the stack fills with stale overlay entries.
+  if (wasOpen && !fromPop && history.state?.overlay === 'menu-sheet') history.back();
 }
-function menuGo(fn) { closeMenuSheet(); setTimeout(fn, 60); }
+function menuGo(fn) { closeMenuSheet(); setTimeout(fn, 90); }  // closeMenuSheet pops the overlay entry
 function toggleSidebar() {
   const open = document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-backdrop').classList.toggle('open', open);
   document.body.classList.toggle('drawer-open', open);
+  if (open) pushOverlayState('sidebar');
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
@@ -3215,10 +3239,14 @@ function clearChatImage() {
 function openLightbox(url) {
   document.getElementById('lightbox-img').src = url;
   document.getElementById('lightbox').classList.add('open');
+  pushOverlayState('lightbox');
 }
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
+function closeLightbox(fromPop) {
+  const el = document.getElementById('lightbox');
+  const wasOpen = el.classList.contains('open');
+  el.classList.remove('open');
   document.getElementById('lightbox-img').src = '';
+  if (wasOpen && !fromPop && history.state?.overlay === 'lightbox') history.back();
 }
 
 // ─── Legal pages ────────────────────────────────────────────────
@@ -3253,31 +3281,50 @@ function anyOverlayOpen() {
       || [...document.querySelectorAll('.modal-overlay')].some(m => m.classList.contains('open'));
 }
 
-function closeTopOverlay() {
-  if (document.getElementById('lightbox')?.classList.contains('open')) return closeLightbox();
-  if (document.getElementById('menu-sheet')?.classList.contains('open')) return closeMenuSheet();
-  if (document.getElementById('notif-sheet')?.classList.contains('open')) return closeNotifSheet();
-  if (document.getElementById('acct-sheet')?.classList.contains('open')) return closeAccountSheet();
-  if (document.getElementById('sidebar')?.classList.contains('open')) return closeSidebar();
+function closeTopOverlay(fromPop) {
+  const shut = el => { el.classList.remove('open'); document.body.classList.remove('drawer-open'); };
+  const lb = document.getElementById('lightbox');
+  if (lb?.classList.contains('open')) { lb.classList.remove('open'); document.getElementById('lightbox-img').src = ''; return; }
+  for (const [sheet, bg] of [['menu-sheet','menu-sheet-bg'], ['notif-sheet','notif-sheet-bg'], ['acct-sheet','acct-sheet-bg']]) {
+    const el = document.getElementById(sheet);
+    if (el?.classList.contains('open')) { shut(el); document.getElementById(bg)?.classList.remove('open'); return; }
+  }
+  const sb = document.getElementById('sidebar');
+  if (sb?.classList.contains('open')) { shut(sb); document.getElementById('sidebar-backdrop')?.classList.remove('open'); return; }
   const openModalEl = [...document.querySelectorAll('.modal-overlay')].find(m => m.classList.contains('open'));
-  if (openModalEl) return closeModal(openModalEl.id);
+  if (openModalEl) openModalEl.classList.remove('open');
+}
+
+// Opening an overlay pushes a disposable history entry, so the back button has
+// something to consume. Without this, back pops past the ONLY entry and the
+// browser leaves the site before popstate can run.
+function pushOverlayState(name) {
+  history.pushState({ overlay: name, page: history.state?.page || 'home', videoId: history.state?.videoId }, '', location.pathname + location.search);
+}
+
+// Closing an overlay by tap/✕ must also consume its history entry, or the stack
+// fills with stale overlay entries and back appears to "do nothing" once.
+function consumeOverlayState() {
+  if (history.state?.overlay) history.back();
 }
 
 window.addEventListener('popstate', (e) => {
-  // 1) An overlay is open → back closes it, and we restore the history entry
+  const st = e.state;
+
+  // 1) We just popped OFF an overlay entry → close whatever is open, stay put
   if (anyOverlayOpen()) {
-    closeTopOverlay();
-    history.pushState(history.state || { page: 'home' }, '', location.pathname + location.search);
+    closeTopOverlay(true);   // true = don't touch history, we're already in a pop
     return;
   }
-  // 2) On mobile, an open chat thread → back returns to the conversation list
+
+  // 2) Mobile chat thread open → back returns to the conversation list
   if (document.body.classList.contains('chat-open') && window.matchMedia('(max-width: 900px)').matches) {
     closeChatThread();
     history.pushState({ page: 'messages' }, '', location.pathname + location.search);
     return;
   }
-  // 3) Otherwise walk our navigation stack
-  const st = e.state;
+
+  // 3) Walk the navigation stack
   if (st?.page === 'player' && st.videoId) { openVideo(st.videoId, { fromPop: true }); return; }
   renderPage(st?.page || 'home');
   syncBottomNav(st?.page || 'home');
