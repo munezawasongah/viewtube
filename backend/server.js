@@ -387,6 +387,33 @@ app.get('/videos/trending', wrap(async (req, res) => {
   res.json({ videos: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
 }));
 
+app.get('/search/suggest', wrap(async (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase().slice(0, 60);
+  if (q.length < 2) return res.json({ videos: [], channels: [] });
+  const end = q + '\uf8ff';
+
+  const [vidSnap, chanSnap] = await Promise.all([
+    db.collection('videos')
+      .where('status', '==', 'live')
+      .where('visibility', '==', 'public')
+      .orderBy('titleLower')
+      .startAt(q).endAt(end)
+      .limit(6).get()
+      .catch(() => ({ docs: [] })),
+    db.collection('users')
+      .orderBy('displayNameLower')
+      .startAt(q).endAt(end)
+      .limit(4).get()
+      .catch(() => ({ docs: [] })),
+  ]);
+
+  res.set('Cache-Control', 'public, max-age=30');
+  res.json({
+    videos: vidSnap.docs.map(d => ({ id: d.id, title: d.data().title, thumbnailUrl: d.data().thumbnailUrl || null, channelName: d.data().channelName || '' })),
+    channels: chanSnap.docs.map(d => ({ id: d.id, displayName: d.data().displayName, username: d.data().username || null, photoURL: d.data().photoURL || null })),
+  });
+}));
+
 app.get('/videos/search', wrap(async (req, res) => {
   const q = sanitizeText(req.query.q, 100).toLowerCase();
   if (!q) return res.json({ videos: [] });
