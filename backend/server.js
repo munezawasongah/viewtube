@@ -19,6 +19,9 @@ if (missing.length) {
   process.exit(1);
 }
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+function isAdmin(user) { return !!user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()); }
+
 const MPESA_ENABLED = !!(process.env.MPESA_CONSUMER_KEY && process.env.MPESA_CONSUMER_SECRET && process.env.MPESA_SHORTCODE && process.env.MPESA_PASSKEY);
 if (!MPESA_ENABLED) console.warn('WARN: M-Pesa env vars not set — payment routes will return 503.');
 
@@ -842,6 +845,58 @@ async function verifyOwnImage(imageId, uid) {
   const base = process.env.API_URL || '';
   return `${base}/img/${doc.id}`;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ADVERTISING — inbound enquiries from prospective advertisers
+// ═══════════════════════════════════════════════════════════════
+const AD_BUDGETS = ['under-50k', '50k-200k', '200k-500k', '500k-plus', 'not-sure'];
+const AD_GOALS = ['brand-awareness', 'product-launch', 'app-installs', 'event-promo', 'creator-partnership', 'other'];
+
+// Public — no auth, so businesses can enquire without an account
+app.post('/advertising/enquiries', rateLimit({ windowMs: 60 * 60 * 1000, max: 5 }), wrap(async (req, res) => {
+  const company = sanitizeText(req.body.company, 100);
+  const contactName = sanitizeText(req.body.contactName, 80);
+  const email = sanitizeText(req.body.email, 120);
+  const message = sanitizeText(req.body.message, 2000);
+  const phone = req.body.phone ? normalizePhone(req.body.phone) : null;
+  const budget = AD_BUDGETS.includes(req.body.budget) ? req.body.budget : 'not-sure';
+  const goal = AD_GOALS.includes(req.body.goal) ? req.body.goal : 'other';
+
+  if (!company) return res.status(400).json({ error: 'Company name is required' });
+  if (!contactName) return res.status(400).json({ error: 'Your name is required' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' });
+  if (!message) return res.status(400).json({ error: 'Please tell us about your campaign' });
+  if (req.body.phone && !phone) return res.status(400).json({ error: 'Invalid phone number' });
+
+  const ref = await db.collection('ad_enquiries').add({
+    company, contactName, email, phone, budget, goal, message,
+    status: 'new',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  // Notify every admin in-app
+  if (ADMIN_EMAILS.length) {
+    const adminSnap = await db.collection('users').where('email', 'in', ADMIN_EMAILS.slice(0, 10)).get();
+    adminSnap.docs.forEach(d => notify(d.id, 'ad_enquiry', `New advertising enquiry from ${company}`, ref.id));
+  }
+  res.json({ id: ref.id, success: true });
+}));
+
+app.get('/advertising/enquiries', authMiddleware, wrap(async (req, res) => {
+  if (!isAdmin(req.user)) return res.status(403).json({ error: 'Admins only' });
+  const snap = await db.collection('ad_enquiries').orderBy('createdAt', 'desc').limit(100).get();
+  res.json({ enquiries: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+}));
+
+app.post('/advertising/enquiries/:id/status', authMiddleware, wrap(async (req, res) => {
+  if (!isAdmin(req.user)) return res.status(403).json({ error: 'Admins only' });
+  const status = ['new', 'contacted', 'won', 'closed'].includes(req.body.status) ? req.body.status : null;
+  if (!status) return res.status(400).json({ error: 'Invalid status' });
+  await db.collection('ad_enquiries').doc(req.params.id).update({ status });
+  res.json({ success: true });
+}));
+
+// Tells the frontend whether to show the admin view
+app.get('/me/admin', authMiddleware, wrap(async (req, res) => res.json({ admin: isAdmin(req.user) })));
 
 // ═══════════════════════════════════════════════════════════════
 // NOTIFICATIONS

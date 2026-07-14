@@ -374,6 +374,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Upload
     </button>
+    <button class="btn btn-ghost" id="advertise-btn" onclick="showPage('advertise')" title="Advertise on ViewTube">📣 Advertise</button>
     <button class="btn btn-ghost" id="theme-btn" onclick="toggleTheme()" title="Switch theme" style="padding:8px 12px;font-size:16px;">🌙</button>
     <button class="btn btn-ghost" id="inbox-btn" onclick="requireAuth(() => showPage('messages'))" title="Messages" style="padding:8px 12px;position:relative;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -426,6 +427,10 @@
     <a class="sidebar-item" onclick="showPage('history')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       History
+    </a>
+    <a class="sidebar-item" id="nav-advertise" onclick="showPage('advertise')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+      Advertise
     </a>
     <a class="sidebar-item" id="nav-messages" onclick="requireAuth(() => showPage('messages'))">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -934,6 +939,71 @@
     </div>
   </section>
 
+  <!-- ADVERTISE -->
+  <section class="page" id="page-advertise">
+    <div style="max-width:760px;">
+      <h1 style="font-family:var(--font-head);font-size:30px;margin-bottom:8px;">📣 Advertise on ViewTube</h1>
+      <p style="color:var(--muted);font-size:15px;line-height:1.7;margin-bottom:28px;">Reach a growing Kenyan audience of creators and viewers. Tell us what you want to achieve and our team will come back to you with options and pricing.</p>
+
+      <div class="mono-grid" style="margin-bottom:28px;">
+        <div class="mono-card"><h3>🎯 Sponsored Placements</h3><p>Feature your brand in the feed and on category pages, targeted by interest.</p></div>
+        <div class="mono-card"><h3>🤝 Creator Partnerships</h3><p>Work directly with creators whose audience matches your product.</p></div>
+        <div class="mono-card"><h3>🔴 Live Sponsorships</h3><p>Put your brand in front of viewers during live streams and events.</p></div>
+      </div>
+
+      <div class="upload-container" style="padding:0;">
+        <h2 style="font-family:var(--font-head);font-size:20px;margin-bottom:16px;">Tell us about your campaign</h2>
+        <div id="ad-form">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group"><label class="form-label">Company / Brand *</label><input class="form-input" id="ad-company" maxlength="100" placeholder="Your business name" /></div>
+            <div class="form-group"><label class="form-label">Your Name *</label><input class="form-input" id="ad-name" maxlength="80" placeholder="Contact person" /></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group"><label class="form-label">Email *</label><input class="form-input" type="email" id="ad-email" maxlength="120" placeholder="you@company.co.ke" /></div>
+            <div class="form-group"><label class="form-label">Phone (optional)</label><input class="form-input" type="tel" id="ad-phone" placeholder="0712345678" /></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group">
+              <label class="form-label">Campaign Goal</label>
+              <select class="form-input" id="ad-goal">
+                <option value="brand-awareness">Brand awareness</option>
+                <option value="product-launch">Product launch</option>
+                <option value="app-installs">App installs</option>
+                <option value="event-promo">Event promotion</option>
+                <option value="creator-partnership">Creator partnership</option>
+                <option value="other">Something else</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Monthly Budget</label>
+              <select class="form-input" id="ad-budget">
+                <option value="not-sure">Not sure yet</option>
+                <option value="under-50k">Under KSh 50,000</option>
+                <option value="50k-200k">KSh 50,000 – 200,000</option>
+                <option value="200k-500k">KSh 200,000 – 500,000</option>
+                <option value="500k-plus">KSh 500,000+</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label class="form-label">About your campaign *</label><textarea class="form-input" id="ad-message" maxlength="2000" placeholder="What are you promoting, who do you want to reach, and when do you want to run it?"></textarea></div>
+          <button class="btn btn-primary" id="ad-submit-btn" style="padding:12px 32px;" onclick="submitAdEnquiry()">Send Enquiry</button>
+          <p style="font-size:12px;color:var(--muted);margin-top:12px;">We typically respond within 2 business days. Your details are handled per our <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); showLegal('privacy')">Privacy Policy</a>.</p>
+        </div>
+        <div id="ad-success" style="display:none;" class="empty-state">
+          <h3>✅ Enquiry sent</h3>
+          <p>Thank you — our team will get back to you at the email you provided.</p>
+          <button class="btn btn-ghost" style="margin-top:16px;" onclick="showPage('home')">Back to ViewTube</button>
+        </div>
+      </div>
+
+      <!-- Admin-only inbox -->
+      <div id="ad-admin" style="display:none;margin-top:40px;">
+        <div class="section-title">Advertising Enquiries (admin)</div>
+        <table class="table" id="ad-admin-table"></table>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- AUTH MODAL -->
@@ -1157,11 +1227,13 @@ auth.onAuthStateChanged(async user => {
     } catch (e) { console.error('Profile sync failed:', e); }
     closeModal('auth-modal');
     loadNotifications(false);
+    checkAdmin();
     if (notifPoll) clearInterval(notifPoll);
     notifPoll = setInterval(() => loadNotifications(false), 60000);
     if (pendingAction) { const fn = pendingAction; pendingAction = null; fn(); }
   } else {
     myProfile = null;
+    isAdminUser = false;
     if (notifPoll) { clearInterval(notifPoll); notifPoll = null; }
     document.getElementById('notif-badge').style.display = 'none';
     signinBtn.style.display = '';
@@ -1239,6 +1311,7 @@ function showPage(name) {
   if (name !== 'upload' && recStream) closeRecorder();
   if (name === 'messages') loadConversations();
   if (name === 'home') renderContinueRow();
+  if (name === 'advertise') loadAdEnquiries();
   if (name === 'trending') loadTrending();
   if (name === 'subscriptions') loadSubscriptions();
   if (name === 'channel') loadChannel(currentUser?.uid);
@@ -2421,7 +2494,7 @@ async function loadNotifications(openPanel) {
     badge.style.display = unread > 0 ? 'block' : 'none';
     badge.textContent = unread > 9 ? '9+' : unread;
     if (openPanel) {
-      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', message_request: '✉️' };
+      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', message_request: '✉️', ad_enquiry: '📣' };
       document.getElementById('notif-list').innerHTML = notifications.length ? notifications.map(n => `
         <div class="chat-item" style="${n.isNew ? 'background:rgba(62,166,255,0.07);' : ''}" onclick="openNotification('${esc(n.type)}','${esc(n.refId || '')}')">
           <div class="ci-name">${icons[n.type] || '🔔'} ${esc(n.text)}</div>
@@ -2451,6 +2524,7 @@ function openNotification(type, refId) {
   if (type === 'comment' || type === 'tip') { if (refId) openVideo(refId); }
   else if (type === 'message_request') { if (refId) openDM(refId); else showPage('messages'); }
   else if (type === 'subscriber') { showPage('channel'); }
+  else if (type === 'ad_enquiry') { showPage('advertise'); }
 }
 
 // ─── Images: compress in-browser, then upload ───────────────────
@@ -2503,6 +2577,69 @@ async function pickImage(input, kind) {
     prev.src = url;
     prev.style.display = 'block';
     showToast(`Image ready (${Math.round(blob.size/1024)}KB)`);
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ─── Advertising ────────────────────────────────────────────────
+let isAdminUser = false;
+
+async function submitAdEnquiry() {
+  const btn = document.getElementById('ad-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending…';
+  try {
+    await api('/advertising/enquiries', { method: 'POST', body: {
+      company: document.getElementById('ad-company').value,
+      contactName: document.getElementById('ad-name').value,
+      email: document.getElementById('ad-email').value,
+      phone: document.getElementById('ad-phone').value,
+      goal: document.getElementById('ad-goal').value,
+      budget: document.getElementById('ad-budget').value,
+      message: document.getElementById('ad-message').value,
+    }});
+    document.getElementById('ad-form').style.display = 'none';
+    document.getElementById('ad-success').style.display = 'block';
+    window.scrollTo(0, 0);
+  } catch (e) { showToast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = 'Send Enquiry'; }
+}
+
+async function checkAdmin() {
+  if (!currentUser) { isAdminUser = false; return; }
+  try { isAdminUser = (await api('/me/admin', { authRequired: true })).admin; } catch { isAdminUser = false; }
+}
+
+async function loadAdEnquiries() {
+  const panel = document.getElementById('ad-admin');
+  if (!isAdminUser) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  try {
+    const { enquiries } = await api('/advertising/enquiries', { authRequired: true });
+    const table = document.getElementById('ad-admin-table');
+    if (!enquiries.length) { table.innerHTML = '<tbody><tr><td style="color:var(--muted);">No enquiries yet.</td></tr></tbody>'; return; }
+    table.innerHTML = `
+      <thead><tr><th>Company</th><th>Contact</th><th>Budget</th><th>Goal</th><th>Message</th><th>Status</th><th>When</th></tr></thead>
+      <tbody>${enquiries.map(e => `
+        <tr>
+          <td><strong>${esc(e.company)}</strong></td>
+          <td style="font-size:12px;">${esc(e.contactName)}<br><span style="color:var(--muted);">${esc(e.email)}${e.phone ? '<br>' + esc(e.phone) : ''}</span></td>
+          <td style="font-size:12px;">${esc(e.budget)}</td>
+          <td style="font-size:12px;">${esc(e.goal)}</td>
+          <td style="max-width:260px;font-size:12px;line-height:1.5;">${esc(e.message)}</td>
+          <td>
+            <select class="form-input" style="padding:4px 8px;font-size:12px;" onchange="setAdStatus('${esc(e.id)}', this.value)">
+              ${['new','contacted','won','closed'].map(s => `<option value="${s}" ${e.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td style="font-size:12px;">${timeAgo(e.createdAt)}</td>
+        </tr>`).join('')}</tbody>`;
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function setAdStatus(id, status) {
+  try {
+    await api(`/advertising/enquiries/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status }, authRequired: true });
+    showToast('Status updated');
   } catch (e) { showToast(e.message, true); }
 }
 
