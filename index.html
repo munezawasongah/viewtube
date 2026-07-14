@@ -619,11 +619,19 @@
       </div>
       <div id="notif-list"><div class="chat-empty" style="padding:30px;">No notifications yet</div></div>
     </div>
-    <div id="user-menu" style="display:none; position:absolute; top:56px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:8px; z-index:300; min-width:180px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
-      <div style="padding:10px 12px; font-size:14px; font-weight:600;" id="user-menu-name"></div>
-      <div class="sidebar-item" onclick="toggleUserMenu(); showPage('channel')">Your Channel</div>
-      <div class="sidebar-item" onclick="toggleUserMenu(); showPage('studio')">Studio</div>
-      <div class="sidebar-item" onclick="toggleUserMenu(); signOut()">Sign Out</div>
+    <div id="user-menu" style="display:none; position:absolute; top:56px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:8px; z-index:300; min-width:230px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); margin-bottom:6px;">
+        <div class="avatar" id="user-menu-avatar" style="width:38px;height:38px;font-size:14px;"></div>
+        <div style="min-width:0;">
+          <div style="font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="user-menu-name"></div>
+          <div style="font-size:12px; color:var(--muted);" id="user-menu-handle"></div>
+        </div>
+      </div>
+      <div class="sidebar-item" onclick="toggleUserMenu(); showPage('channel')">👤 My Channel</div>
+      <div class="sidebar-item" onclick="toggleUserMenu(); showPage('studio')">📊 Creator Dashboard</div>
+      <div class="sidebar-item" onclick="toggleUserMenu(); showPage('channel'); setTimeout(() => openModal('profile-modal'), 200)">⚙️ Edit Profile</div>
+      <div class="sidebar-item" onclick="toggleUserMenu(); showPage('history')">🕐 Watch History</div>
+      <div class="sidebar-item" onclick="toggleUserMenu(); signOut()" style="color:var(--accent2);">🚪 Sign Out</div>
     </div>
   </div>
 </nav>
@@ -1535,6 +1543,8 @@ function setAuthUI(signedIn) {
 function refreshNavAvatar() {
   const el = document.getElementById('nav-avatar');
   el.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+  const menuAv = document.getElementById('user-menu-avatar');
+  if (menuAv) menuAv.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
   document.getElementById('comment-avatar').innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
   const mAv = document.getElementById('mobile-avatar');
   const mIn = document.getElementById('mobile-signin');
@@ -1602,7 +1612,8 @@ auth.onAuthStateChanged(async user => {
     try {
       myProfile = await api('/auth/sync', { method: 'POST', authRequired: true });
       refreshNavAvatar();
-      document.getElementById('user-menu-name').textContent = myProfile.displayName + (myProfile.username ? ` @${myProfile.username}` : '');
+      document.getElementById('user-menu-name').textContent = myProfile.displayName || 'Your account';
+      document.getElementById('user-menu-handle').textContent = myProfile.username ? '@' + myProfile.username : '';
     } catch (e) { console.error('Profile sync failed:', e); }
     closeModal('auth-modal');
     loadNotifications(false);
@@ -1675,7 +1686,10 @@ function signOut() { auth.signOut(); showPage('home'); showToast('Signed out'); 
 function toggleUserMenu() { const m = document.getElementById('user-menu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
 document.addEventListener('click', e => {
   const menu = document.getElementById('user-menu');
-  if (menu.style.display === 'block' && !menu.contains(e.target) && e.target.id !== 'nav-avatar') menu.style.display = 'none';
+  const avatarEl = document.getElementById('nav-avatar');
+  // closest() — not e.target.id — because the avatar contains an <img>, so clicks
+  // land on the child element and the old id check always failed.
+  if (menu.style.display === 'block' && !menu.contains(e.target) && !avatarEl?.contains(e.target)) menu.style.display = 'none';
   const panel = document.getElementById('notif-panel');
   if (panel.style.display === 'block' && !panel.contains(e.target) && !document.getElementById('notif-btn').contains(e.target)) panel.style.display = 'none';
 });
