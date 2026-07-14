@@ -333,10 +333,6 @@
       .sidebar .mobile-only:not([hidden]) { display: flex !important; }
       .main { margin-left: 0; padding-top: 60px; padding-left: 0; padding-right: 0; padding-bottom: 70px; }
       .page { padding: 16px 14px 24px; }
-      /* Messages is a full-height app screen — tighten its padding so the chat fits
-         exactly between the top bar and the bottom tab bar. */
-      #page-messages { padding: 12px 10px 8px; }
-      #page-messages .section-title { margin-bottom: 8px; }
       .player-layout { grid-template-columns: 1fr; gap: 20px; }
       .hero { padding: 28px 20px; }
       .hero h1 { font-size: 30px; }
@@ -388,14 +384,27 @@
       .comment-replies { margin-left: 24px; }
 
       /* Chat becomes single-pane: list OR thread */
+      /* The messages screen fills the gap between the two fixed bars.
+         `position: fixed` with explicit top/bottom removes ALL guesswork about
+         page padding, browser chrome, and tab-bar height. */
+      #page-messages.active {
+        position: fixed;
+        top: 56px;                          /* below the brand header */
+        bottom: 62px;                       /* above the tab bar */
+        left: 0; right: 0;
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        margin: 0;
+      }
+      #page-messages .section-title { flex: 0 0 auto; margin: 0 0 8px; }
       .chat-layout {
         grid-template-columns: 1fr;
-        /* Viewport MINUS: top nav (56) + bottom tab bar (62) + page padding (~40).
-           The old value ignored the tab bar, so the input row rendered underneath it. */
-        height: calc(100vh - 175px);        /* fallback: Android 12 / Chrome < 108 */
-        height: calc(100dvh - 175px);       /* modern: accounts for browser chrome */
-        min-height: 300px;
-        margin-bottom: 0;
+        flex: 1 1 auto;                     /* fill whatever space is left */
+        height: auto;                       /* no fixed height at all */
+        min-height: 0;                      /* allow shrink so children can scroll */
+        margin: 0;
       }
       /* Message list must own the scroll, not the page */
       .chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -1663,14 +1672,23 @@ document.addEventListener('click', e => {
 // showPage() = navigate (pushes browser history). renderPage() = just render.
 // This keeps the Android/browser back button walking our navigation stack instead
 // of exiting the app on the first press.
+function pageUrl(name, videoId) {
+  // Encode the page in the URL so a REFRESH lands on the same screen.
+  const p = new URLSearchParams();
+  if (name === 'player' && videoId) p.set('v', videoId);
+  else if (name && name !== 'home') p.set('p', name);
+  const qs = p.toString();
+  return location.pathname + (qs ? '?' + qs : '');
+}
+
 function showPage(name, opts = {}) {
-  // If an overlay is open, "navigating" should close it rather than change page
   renderPage(name);
   if (!opts.fromPop) {
-    const state = { page: name, videoId: name === 'player' ? currentVideo?.id : undefined };
-    // Replace instead of push when re-selecting the same page (avoids stacking dupes)
-    if (history.state?.page === name && name !== 'player') history.replaceState(state, '', location.pathname + location.search);
-    else history.pushState(state, '', location.pathname + location.search);
+    const videoId = name === 'player' ? currentVideo?.id : undefined;
+    const state = { page: name, videoId };
+    const url = pageUrl(name, videoId);
+    if (history.state?.page === name && name !== 'player') history.replaceState(state, '', url);
+    else history.pushState(state, '', url);
   }
 }
 
@@ -1799,6 +1817,7 @@ function stopPlayback() {
 async function openVideo(id, opts = {}) {
   audioMode = false; hideMiniPlayer();
   showPage('player', opts);
+  if (!opts.fromPop) history.replaceState({ page: 'player', videoId: id }, '', pageUrl('player', id));
   const wrap = document.getElementById('player-wrap');
   wrap.innerHTML = '<div class="skeleton" style="width:100%;height:100%;border-radius:0;"></div>';
   document.getElementById('player-title').textContent = 'Loading…';
@@ -3313,7 +3332,11 @@ function closeTopOverlay(fromPop) {
 // something to consume. Without this, back pops past the ONLY entry and the
 // browser leaves the site before popstate can run.
 function pushOverlayState(name) {
-  history.pushState({ overlay: name, page: history.state?.page || 'home', videoId: history.state?.videoId }, '', location.pathname + location.search);
+  history.pushState(
+    { overlay: name, page: history.state?.page || 'home', videoId: history.state?.videoId },
+    '',
+    location.pathname + location.search   // keep the URL as-is; overlays aren't pages
+  );
 }
 
 // Closing an overlay by tap/✕ must also consume its history entry, or the stack
@@ -3346,7 +3369,12 @@ window.addEventListener('popstate', (e) => {
 
 // ─── Init ───────────────────────────────────────────────────────
 (function init() {
-  history.replaceState({ page: 'home' }, '', location.pathname + location.search);
+  // Restore the page from the URL so a refresh (or a shared link) lands correctly
+  const params = new URLSearchParams(location.search);
+  const deepVideo = params.get('v');
+  const deepPage = params.get('p');
+  const startPage = deepVideo ? 'player' : (deepPage || 'home');
+  history.replaceState({ page: startPage, videoId: deepVideo || undefined }, '', location.pathname + location.search);
   try { applyTheme(localStorage.getItem('vt_theme') || 'dark'); } catch {}
   if (API_BASE_URL.includes('YOUR-API') || FIREBASE_CONFIG.apiKey.includes('YOUR_')) {
     document.getElementById('home-error').innerHTML =
@@ -3355,6 +3383,21 @@ window.addEventListener('popstate', (e) => {
   loadFeed(true);
   loadLiveRow();
   renderContinueRow();
+  // Deep link / refresh restore
+  if (deepVideo) {
+    openVideo(deepVideo, { fromPop: true });
+  } else if (deepPage && document.getElementById('page-' + deepPage)) {
+    // auth-gated pages wait for Firebase to report the user
+    const gated = ['messages', 'studio', 'upload', 'golive', 'subscriptions', 'channel'];
+    if (gated.includes(deepPage)) {
+      const stop = firebase.auth().onAuthStateChanged(u => {
+        stop();
+        if (u) renderPage(deepPage); else renderPage('home');
+      });
+    } else {
+      renderPage(deepPage);
+    }
+  }
   setInterval(loadLiveRow, 60000);
   // Deep link: ?v=VIDEO_ID
   const vid = new URLSearchParams(location.search).get('v');
