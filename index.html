@@ -160,6 +160,8 @@
     .player-title { font-family: var(--font-head); font-size: 20px; font-weight: 600; margin-bottom: 12px; line-height: 1.3; }
     .player-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .action-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 40px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 14px; transition: all .15s; font-family: var(--font-body); }
+    .share-icon-btn[title*="WhatsApp"] svg { color: #25D366; }
+    .share-icon-btn[title*="Facebook"] svg { color: #1877F2; }
     .action-btn:hover { border-color: var(--accent); color: var(--accent); }
     .action-btn.liked { background: #f1f1f1; color: #0f0f0f; border-color: #f1f1f1; }
     .channel-row { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 16px; }
@@ -426,6 +428,10 @@
       .player-title { font-size: 18px; }
       .player-actions { gap: 6px; }
       .action-btn { padding: 7px 12px; font-size: 12px; }
+      /* Share buttons become icon-only so the whole row fits under the player */
+      .share-icon-btn .btn-label { display: none; }
+      .share-icon-btn { padding: 7px 11px; }
+      .share-icon-btn svg { width: 18px; height: 18px; }
       .channel-row { flex-wrap: wrap; gap: 10px; }
       .comment-replies { margin-left: 24px; }
 
@@ -633,8 +639,8 @@
 
 <nav>
   <a class="nav-logo" href="#" onclick="event.preventDefault(); showPage('home')">
-    View<span>Tube</span>
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
+    <span>View</span>Tube
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
   </a>
   <div class="nav-search" id="nav-search">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -845,13 +851,13 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
               Share
             </button>
-            <button class="action-btn" onclick="shareWhatsApp()" title="Share on WhatsApp">
+            <button class="action-btn share-icon-btn" onclick="shareWhatsApp()" title="Share on WhatsApp" aria-label="Share on WhatsApp">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.2c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.6-2.6-1.1-4.3-3.8-4.4-4-.1-.2-1.1-1.4-1.1-2.7 0-1.3.7-1.9.9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.8.8 1.9.1.1.1.3 0 .5-.3.6-.6.7-.4 1 .5.9 1.2 1.6 2 2.1.3.2.5.2.7-.1.2-.2.8-.9 1-1.2.2-.3.4-.2.7-.1.3.1 1.7.8 2 1 .3.2.5.2.5.4.1.1.1.7-.1 1.3z"/></svg>
-              WhatsApp
+              <span class="btn-label">WhatsApp</span>
             </button>
-            <button class="action-btn" onclick="shareFacebook()" title="Share on Facebook">
+            <button class="action-btn share-icon-btn" onclick="shareFacebook()" title="Share on Facebook" aria-label="Share on Facebook">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z"/></svg>
-              Facebook
+              <span class="btn-label">Facebook</span>
             </button>
             <button class="action-btn" id="download-btn" onclick="downloadVideo()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
