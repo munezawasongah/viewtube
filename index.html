@@ -392,23 +392,35 @@
         top: 56px;                          /* below the brand header */
         bottom: 62px;                       /* above the tab bar */
         left: 0; right: 0;
-        padding: 8px 10px;
+        width: 100%;
+        max-width: 100% !important;         /* .page/.main may cap width — override */
+        padding: 8px 8px 6px;
+        margin: 0 !important;
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        margin: 0;
+        box-sizing: border-box;
       }
       #page-messages .section-title { flex: 0 0 auto; margin: 0 0 8px; }
       .chat-layout {
-        grid-template-columns: 1fr;
-        flex: 1 1 auto;                     /* fill whatever space is left */
-        height: auto;                       /* no fixed height at all */
-        min-height: 0;                      /* allow shrink so children can scroll */
+        display: flex !important;           /* drop the grid entirely on mobile */
+        flex-direction: column;
+        width: 100%;
+        max-width: 100%;
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 0;
         margin: 0;
+        overflow: hidden;
       }
+      .chat-list, .chat-thread { width: 100% !important; max-width: 100% !important; }
       /* Message list must own the scroll, not the page */
       .chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-      .chat-thread { min-height: 0; overflow: hidden; }   /* without this, msgs overflow instead of scrolling */
+      .chat-thread { min-height: 0; overflow: hidden; flex: 1 1 auto; width: 100%; }
+      .chat-msgs { width: 100%; box-sizing: border-box; }
+      .chat-input-row { width: 100%; box-sizing: border-box; }
+      .chat-input-row #chat-input { flex: 1 1 auto; min-width: 0; }  /* shrink so Send never clips */
+      .chat-input-row .btn { flex: 0 0 auto; }
       .chat-header { flex: 0 0 auto; }
       .chat-input-row { flex: 0 0 auto; }
       #chat-img-preview { flex: 0 0 auto; }
