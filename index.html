@@ -293,7 +293,9 @@
     /* ═══ MOBILE ═══ */
     .mobile-only { display: none; }
     /* `hidden` must win over any display rule, including .mobile-only's !important */
-    [hidden] { display: none !important; }
+    /* Must out-specify `.mobile-only { display: inline-flex !important }` in the
+       media query below — equal specificity would lose on source order. */
+    [hidden], [hidden].mobile-only, .mobile-only[hidden] { display: none !important; }
     /* Desktop must explicitly hide mobile-only elements: .btn/.avatar set their own
        display values that would otherwise beat the plain `display:none` above. */
     @media (min-width: 901px) {
@@ -327,8 +329,8 @@
       }
       .sidebar.open { left: 0; }
       body.drawer-open { overflow: hidden; }
-      .mobile-only { display: inline-flex !important; }
-      .sidebar .mobile-only { display: flex !important; }
+      .mobile-only:not([hidden]) { display: inline-flex !important; }
+      .sidebar .mobile-only:not([hidden]) { display: flex !important; }
       .main { margin-left: 0; padding-top: 60px; padding-left: 0; padding-right: 0; padding-bottom: 70px; }
       .page { padding: 16px 14px 24px; }
       .player-layout { grid-template-columns: 1fr; gap: 20px; }
