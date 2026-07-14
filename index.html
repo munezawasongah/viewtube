@@ -245,7 +245,7 @@
     /* ─── RESPONSIVE ─── */
     /* ═══ MOBILE ═══ */
     .mobile-only { display: none; }
-    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 199; }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 299; }
     .sidebar-backdrop.open { display: block; }
 
     @media (max-width: 900px) {
@@ -253,22 +253,29 @@
          Must be full-height and above the nav, or it hides behind it. */
       .sidebar {
         position: fixed !important;
-        top: 0 !important; left: 0; bottom: 0;
-        width: 80vw; max-width: 300px;
-        height: 100vh; height: 100dvh;      /* dvh handles mobile browser chrome */
-        padding-top: 8px;
+        top: 0 !important;
+        bottom: 0 !important;
+        left: -300px;                        /* off-screen via left, not transform */
+        width: 82vw; max-width: 300px;
+        height: 100dvh;
+        padding: 8px 0 24px;
+        margin: 0;
         background: var(--bg);
-        z-index: 200 !important;             /* above nav (100) and backdrop (199) */
-        transform: translateX(-100%);
-        transition: transform .25s ease;
-        box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+        border-right: 1px solid var(--border);
+        z-index: 300 !important;             /* above nav (100), modals overlay (200), backdrop (299) */
+        transform: none !important;          /* never rely on transform here */
+        transition: left .25s ease;
+        box-shadow: 6px 0 30px rgba(0,0,0,0.6);
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        display: block !important;
       }
-      .sidebar.open { transform: translateX(0); }
-      body.drawer-open { overflow: hidden; }  /* stop background scrolling behind drawer */
-      .mobile-only { display: inline-flex; }
-      .main { margin-left: 0; padding: 20px 16px 90px; }
+      .sidebar.open { left: 0; }
+      body.drawer-open { overflow: hidden; }
+      .mobile-only { display: inline-flex !important; }
+      .sidebar .mobile-only { display: flex !important; }
+      .main { margin-left: 0; padding-top: 60px; padding-left: 0; padding-right: 0; padding-bottom: 70px; }
+      .page { padding: 16px 14px 24px; }
       .player-layout { grid-template-columns: 1fr; gap: 20px; }
       .hero { padding: 28px 20px; }
       .hero h1 { font-size: 30px; }
