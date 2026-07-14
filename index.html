@@ -245,8 +245,8 @@
     /* ─── RESPONSIVE ─── */
 
     /* ─── MOBILE MENU SHEET (replaces the drawer) ─── */
-    #menu-sheet-bg, #notif-sheet-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 998; }
-    #menu-sheet-bg.open, #notif-sheet-bg.open { display: block; }
+    #menu-sheet-bg, #notif-sheet-bg, #acct-sheet-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 998; }
+    #menu-sheet-bg.open, #notif-sheet-bg.open, #acct-sheet-bg.open { display: block; }
     #notif-sheet {
       position: fixed; left: 0; right: 0; bottom: 0;
       max-height: 78vh; max-height: 78dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -256,7 +256,20 @@
       padding: 8px 0 24px; box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
     }
     #notif-sheet.open { transform: translateY(0); }
-    @media (min-width: 901px) { #notif-sheet, #notif-sheet-bg { display: none !important; } }
+    #acct-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      max-height: 78vh; max-height: 78dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      background: var(--card); border-top: 1px solid var(--border);
+      border-radius: 18px 18px 0 0; z-index: 999;
+      transform: translateY(100%); transition: transform .28s ease;
+      padding: 8px 0 24px; box-shadow: 0 -8px 40px rgba(0,0,0,0.6);
+    }
+    #acct-sheet.open { transform: translateY(0); }
+    #acct-sheet a { display: flex; align-items: center; gap: 14px; padding: 13px 20px; color: var(--text); font-size: 15px; cursor: pointer; text-decoration: none; }
+    #acct-sheet a:active { background: var(--surface); }
+    #acct-sheet hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+    #acct-sheet .ms-grip { width: 40px; height: 4px; background: var(--border); border-radius: 3px; margin: 8px auto 12px; }
+    @media (min-width: 901px) { #notif-sheet, #notif-sheet-bg, #acct-sheet, #acct-sheet-bg { display: none !important; } }
     #menu-sheet {
       position: fixed; left: 0; right: 0; bottom: 0;
       max-height: 82vh; max-height: 82dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -544,7 +557,7 @@
     <input type="text" id="search-input" placeholder="Search videos, channels..." onkeydown="if(event.key==='Enter')runSearch(this.value)" />
   </div>
   <button class="btn btn-primary mobile-only" id="mobile-signin" onclick="openModal('auth-modal')" style="padding:6px 14px;font-size:13px;flex:0 0 auto;">Sign In</button>
-  <div class="avatar mobile-only" id="mobile-avatar" hidden style="display:none;width:32px;height:32px;font-size:13px;flex:0 0 auto;" onclick="openMenuSheet()"></div>
+  <div class="avatar mobile-only" id="mobile-avatar" hidden style="display:none;width:32px;height:32px;font-size:13px;flex:0 0 auto;" onclick="openAccountSheet()"></div>
   <div class="nav-right">
     <button class="btn btn-upload" onclick="requireAuth(() => showPage('upload'))">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1318,6 +1331,25 @@
   </a>
 </nav>
 
+<!-- Mobile account sheet -->
+<div id="acct-sheet-bg" onclick="closeAccountSheet()"></div>
+<div id="acct-sheet">
+  <div class="ms-grip"></div>
+  <div style="display:flex;align-items:center;gap:12px;padding:4px 20px 14px;border-bottom:1px solid var(--border);">
+    <div class="avatar" id="acct-sheet-avatar" style="width:44px;height:44px;font-size:16px;"></div>
+    <div style="min-width:0;">
+      <div id="acct-sheet-name" style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+      <div id="acct-sheet-handle" style="font-size:12px;color:var(--muted);"></div>
+    </div>
+  </div>
+  <a onclick="acctGo(() => requireAuth(() => showPage('channel')))">👤 My Channel</a>
+  <a onclick="acctGo(() => requireAuth(() => showPage('studio')))">📊 Creator Dashboard</a>
+  <a onclick="acctGo(() => requireAuth(() => { showPage('channel'); setTimeout(() => openModal('profile-modal'), 200); }))">⚙️ Edit Profile</a>
+  <a onclick="acctGo(() => showPage('history'))">🕐 Watch History</a>
+  <hr>
+  <a onclick="acctGo(() => signOut())" style="color:var(--accent2);">🚪 Sign Out</a>
+</div>
+
 <!-- Mobile notifications sheet -->
 <div id="notif-sheet-bg" onclick="closeNotifSheet()"></div>
 <div id="notif-sheet">
@@ -1338,11 +1370,8 @@
   <a onclick="menuGo(() => showPage('trending'))">🔥 Trending</a>
   <hr>
 
-  <div class="ms-label">You</div>
-  <a onclick="menuGo(() => requireAuth(() => showPage('channel')))">👤 Your Channel</a>
-  <a onclick="menuGo(() => requireAuth(() => showPage('studio')))">📊 Studio</a>
+  <div class="ms-label">Create</div>
   <a onclick="menuGo(() => requireAuth(() => showPage('golive')))">🔴 Go Live</a>
-  <a onclick="menuGo(() => showPage('history'))">🕐 History</a>
   <a onclick="menuGo(() => requireAuth(() => showPage('subscriptions')))">👥 Subscriptions</a>
   <hr>
 
@@ -1360,8 +1389,6 @@
   <div class="ms-label">More</div>
   <a onclick="menuGo(() => showPage('advertise'))">📣 Advertise</a>
   <a onclick="toggleTheme()">🌓 Switch Theme</a>
-  <a id="ms-signout" onclick="menuGo(() => signOut())" style="display:none;">🚪 Sign Out</a>
-  <a id="ms-signin" onclick="menuGo(() => openModal('auth-modal'))">🔑 Sign In</a>
   <hr>
 
   <div class="ms-label">Legal</div>
@@ -1437,23 +1464,28 @@ function avatarHTML(url, name, cls) {
   const initial = esc((name || 'U')[0].toUpperCase());
   return url ? `<img src="${esc(url)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${initial}'))" />` : initial;
 }
+function setAuthUI(signedIn) {
+  const mAv = document.getElementById('mobile-avatar');
+  const mIn = document.getElementById('mobile-signin');
+  if (mAv) {
+    mAv.hidden = !signedIn;
+    mAv.style.display = signedIn ? 'flex' : 'none';
+    if (!signedIn) mAv.innerHTML = '';
+  }
+  if (mIn) {
+    mIn.hidden = !!signedIn;
+    mIn.style.display = signedIn ? 'none' : '';
+  }
+}
+
 function refreshNavAvatar() {
   const el = document.getElementById('nav-avatar');
   el.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
   document.getElementById('comment-avatar').innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
   const mAv = document.getElementById('mobile-avatar');
   const mIn = document.getElementById('mobile-signin');
-  if (mAv && mIn) {
-    if (currentUser) {
-      mAv.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
-      mAv.hidden = false; mAv.style.display = 'flex';
-      mIn.hidden = true;  mIn.style.display = 'none';
-    } else {
-      mAv.innerHTML = '';
-      mAv.hidden = true;  mAv.style.display = 'none';
-      mIn.hidden = false; mIn.style.display = '';
-    }
-  }
+  if (mAv) mAv.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+  setAuthUI(!!currentUser);
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 function fmtNum(n) { n = Number(n) || 0; if (n >= 1e6) return (n/1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n/1e3).toFixed(1) + 'K'; return String(n); }
@@ -1503,6 +1535,8 @@ auth.onAuthStateChanged(async user => {
   const signinBtn = document.getElementById('signin-btn');
   const avatar = document.getElementById('nav-avatar');
   if (user) {
+    // Set auth UI FIRST — must not depend on the profile fetch below succeeding
+    setAuthUI(true);
     signinBtn.style.display = 'none';
     avatar.hidden = false;
     avatar.style.display = 'flex';
@@ -1523,9 +1557,7 @@ auth.onAuthStateChanged(async user => {
   } else {
     myProfile = null;
     isAdminUser = false;
-    const mAv = document.getElementById('mobile-avatar'), mIn = document.getElementById('mobile-signin');
-    if (mAv) { mAv.hidden = true; mAv.style.display = 'none'; mAv.innerHTML = ''; }
-    if (mIn) { mIn.hidden = false; mIn.style.display = ''; }
+    setAuthUI(false);
     if (notifPoll) { clearInterval(notifPoll); notifPoll = null; }
     if (msgPoll) { clearInterval(msgPoll); msgPoll = null; }
     ['inbox-badge','bn-msg-badge','notif-badge','bn-notif-badge'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
@@ -1594,6 +1626,7 @@ function showPage(name) {
   closeSidebar();
   closeMenuSheet();
   closeNotifSheet();
+  closeAccountSheet();
   syncBottomNav(name);
   if (name !== 'messages') document.body.classList.remove('chat-open');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2434,28 +2467,61 @@ async function initCamera() {
   }
 }
 
+let camDevices = [], camIndex = 0;
+
 async function flipCamera() {
-  camFacing = camFacing === 'user' ? 'environment' : 'user';
-  const old = camStream;
+  const btn = document.getElementById('cam-flip-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const prevFacing = camFacing;
+  const oldStream = camStream;
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: { echoCancellation: true, noiseSuppression: true },
-    });
-    document.getElementById('cam-preview').srcObject = camStream;
-    // If already broadcasting, swap tracks live without reconnecting
-    if (camPC) {
-      const newVideo = camStream.getVideoTracks()[0];
-      const newAudio = camStream.getAudioTracks()[0];
-      for (const sender of camPC.getSenders()) {
-        if (sender.track?.kind === 'video' && newVideo) await sender.replaceTrack(newVideo);
-        if (sender.track?.kind === 'audio' && newAudio) await sender.replaceTrack(newAudio);
-      }
+    // facingMode alone is unreliable on Android (often returns the SAME camera),
+    // so enumerate real devices and cycle through them by deviceId.
+    if (!camDevices.length) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      camDevices = devices.filter(d => d.kind === 'videoinput');
     }
-    old?.getTracks().forEach(t => t.stop());
+    camFacing = camFacing === 'user' ? 'environment' : 'user';
+
+    let videoConstraint;
+    if (camDevices.length > 1) {
+      camIndex = (camIndex + 1) % camDevices.length;
+      videoConstraint = { deviceId: { exact: camDevices[camIndex].deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } };
+    } else {
+      videoConstraint = { facingMode: { ideal: camFacing }, width: { ideal: 1280 }, height: { ideal: 720 } };
+    }
+
+    // CRITICAL while live: release the current video track first. Most Android devices
+    // refuse to open a second camera while the first is still held, which is why
+    // flipping failed mid-broadcast.
+    if (broadcasting) oldStream?.getVideoTracks().forEach(t => t.stop());
+
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: videoConstraint,
+      audio: broadcasting ? false : { echoCancellation: true, noiseSuppression: true },
+    });
+    const newVideo = newStream.getVideoTracks()[0];
+
+    if (broadcasting && camPC) {
+      // Hot-swap the video track into the live peer connection — no reconnect, audio untouched
+      const sender = camPC.getSenders().find(s => s.track?.kind === 'video');
+      if (sender && newVideo) await sender.replaceTrack(newVideo);
+      const keptAudio = oldStream?.getAudioTracks()[0];
+      camStream = new MediaStream(keptAudio ? [newVideo, keptAudio] : [newVideo]);
+    } else {
+      oldStream?.getTracks().forEach(t => t.stop());
+      camStream = newStream;
+    }
+
+    document.getElementById('cam-preview').srcObject = camStream;
+    showToast(broadcasting ? '🔄 Camera switched — still live' : '🔄 Camera switched');
   } catch (e) {
-    camFacing = camFacing === 'user' ? 'environment' : 'user'; // revert
+    camFacing = prevFacing;
     showToast('Could not switch camera: ' + e.message, true);
+    if (broadcasting && oldStream) document.getElementById('cam-preview').srcObject = oldStream;
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -2481,6 +2547,12 @@ async function startBroadcast() {
     const answer = await res.text();
     await camPC.setRemoteDescription({ type: 'answer', sdp: answer });
     broadcasting = true;
+    // Live now: swap the controls so "Start Broadcasting" cannot be pressed again
+    document.getElementById('cam-broadcast-btn').style.display = 'none';
+    document.getElementById('cam-stop-btn').style.display = '';
+    document.getElementById('cam-state').innerHTML = '<span class="live-badge"><span class="live-dot"></span> LIVE</span>';
+    const cancelBtn = document.querySelector('#golive-camera button[onclick="exitCamera()"]');
+    if (cancelBtn) cancelBtn.style.display = 'none';   // can't "cancel" mid-broadcast — use End Broadcast
     document.getElementById('cam-state').innerHTML = '<span class="live-badge"><span class="live-dot"></span> LIVE</span> Broadcasting from your camera';
     btn.style.display = 'none';
     document.getElementById('cam-stop-btn').style.display = '';
@@ -2501,10 +2573,21 @@ async function startBroadcast() {
 
 function teardownPC() { broadcasting = false; try { camPC?.close(); } catch {} camPC = null; }
 
+function restoreLiveControls() {
+  document.getElementById('cam-broadcast-btn').style.display = '';
+  document.getElementById('cam-stop-btn').style.display = 'none';
+  document.getElementById('cam-state').innerHTML = '<span class="status-pill status-processing">Preview — not live yet</span>';
+  const cancelBtn = document.querySelector('#golive-camera button[onclick="exitCamera()"]');
+  if (cancelBtn) cancelBtn.style.display = '';
+  const fb = document.getElementById('cam-flip-btn');
+  if (fb) fb.disabled = false;
+}
+
 async function stopBroadcast() {
   teardownPC();
   await stopLive(); // ends the stream server-side too
   exitCamera(false);
+  restoreLiveControls();
 }
 
 function exitCamera(reset = true) {
@@ -2995,13 +3078,27 @@ async function setAdStatus(id, status) {
 }
 
 // ─── Mobile navigation ──────────────────────────────────────────
+function openAccountSheet() {
+  requireAuth(() => {
+    document.getElementById('acct-sheet-avatar').innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+    document.getElementById('acct-sheet-name').textContent = myProfile?.displayName || 'Your account';
+    document.getElementById('acct-sheet-handle').textContent = myProfile?.username ? '@' + myProfile.username : '';
+    document.getElementById('acct-sheet').classList.add('open');
+    document.getElementById('acct-sheet-bg').classList.add('open');
+    document.body.classList.add('drawer-open');
+  });
+}
+function closeAccountSheet() {
+  document.getElementById('acct-sheet').classList.remove('open');
+  document.getElementById('acct-sheet-bg').classList.remove('open');
+  document.body.classList.remove('drawer-open');
+}
+function acctGo(fn) { closeAccountSheet(); setTimeout(fn, 60); }
+
 function openMenuSheet() {
   document.getElementById('menu-sheet').classList.add('open');
   document.getElementById('menu-sheet-bg').classList.add('open');
   document.body.classList.add('drawer-open');
-  // reflect auth state
-  document.getElementById('ms-signout').style.display = currentUser ? 'flex' : 'none';
-  document.getElementById('ms-signin').style.display = currentUser ? 'none' : 'flex';
 }
 function closeMenuSheet() {
   document.getElementById('menu-sheet').classList.remove('open');
