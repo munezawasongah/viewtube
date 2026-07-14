@@ -914,6 +914,12 @@ app.get('/notifications', authMiddleware, wrap(async (req, res) => {
   res.json({ notifications: items, unread: items.filter(n => n.isNew).length });
 }));
 
+app.get('/messages/unread-count', authMiddleware, wrap(async (req, res) => {
+  const snap = await db.collection('conversations').where('participants', 'array-contains', req.user.uid).get();
+  const total = snap.docs.reduce((s, d) => s + (d.data().unread?.[req.user.uid] || 0), 0);
+  res.json({ unread: total });
+}));
+
 app.post('/notifications/read', authMiddleware, wrap(async (req, res) => {
   await db.collection('users').doc(req.user.uid).set({ notifReadAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   res.json({ success: true });
@@ -936,12 +942,13 @@ app.get('/messages/conversations', authMiddleware, wrap(async (req, res) => {
     const userSnaps = await db.getAll(...otherIds.map(id => db.collection('users').doc(id)));
     userSnaps.forEach(s => { if (s.exists) nameMap[s.id] = s.data().displayName || 'User'; });
   }
-  res.json({ conversations: convos
+  const visible = convos
     .filter(c => !((c.status === 'declined') && c.requesterId !== req.user.uid)) // hide declined requests from the person who declined
     .map(c => {
       const otherId = c.participants.find(p => p !== req.user.uid);
-      return { id: c.id, otherId, otherName: nameMap[otherId] || 'User', lastMessage: c.lastMessage || '', lastSenderId: c.lastSenderId || null, status: c.status || 'accepted', requesterId: c.requesterId || null, updatedAt: c.updatedAt };
-    }) });
+      return { id: c.id, otherId, otherName: nameMap[otherId] || 'User', lastMessage: c.lastMessage || '', lastSenderId: c.lastSenderId || null, status: c.status || 'accepted', requesterId: c.requesterId || null, unread: c.unread?.[req.user.uid] || 0, updatedAt: c.updatedAt };
+    });
+  res.json({ conversations: visible, totalUnread: visible.reduce((s, c) => s + c.unread, 0) });
 }));
 
 app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
@@ -954,6 +961,10 @@ app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
     db.collection('conversations').doc(id).get(),
   ]);
   const convo = convoDoc.exists ? convoDoc.data() : null;
+  // Reading the thread marks it read for this user
+  if (convo && (convo.unread?.[req.user.uid] || 0) > 0) {
+    db.collection('conversations').doc(id).update({ [`unread.${req.user.uid}`]: 0 }).catch(() => {});
+  }
   res.json({
     otherName: otherDoc.exists ? otherDoc.data().displayName || 'User' : 'User',
     status: convo ? (convo.status || 'accepted') : 'new',
@@ -980,13 +991,15 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
+  const senderDoc = await db.collection('users').doc(req.user.uid).get();
+  const senderName = senderDoc.data()?.displayName || 'Someone';
+
   if (!convoDoc.exists) {
     // First message = a message request; the receiver must accept before replying
     update.status = 'pending';
     update.requesterId = req.user.uid;
     update.createdAt = admin.firestore.FieldValue.serverTimestamp();
-    const senderDoc = await db.collection('users').doc(req.user.uid).get();
-    notify(otherUid, 'message_request', `${senderDoc.data()?.displayName || 'Someone'} sent you a message request`, req.user.uid);
+    notify(otherUid, 'message_request', `${senderName} sent you a message request`, req.user.uid);
   } else {
     const c = convoDoc.data();
     const status = c.status || 'accepted'; // conversations from before this feature count as accepted
@@ -996,7 +1009,13 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     }
     // Receiver replying to a pending/declined request = implicit accept
     if (status !== 'accepted' && !isRequester) update.status = 'accepted';
+    // Notify on every subsequent message (this was missing entirely)
+    notify(otherUid, 'message', `${senderName}: ${text.slice(0, 60)}`, req.user.uid);
   }
+
+  // Per-recipient unread counter drives the Messages badge
+  update[`unread.${otherUid}`] = admin.firestore.FieldValue.increment(1);
+  update[`unread.${req.user.uid}`] = 0;
 
   await convoRef.set(update, { merge: true });
   const ref = await db.collection('messages').add({

@@ -484,6 +484,7 @@
     <button class="btn btn-ghost" id="theme-btn" onclick="toggleTheme()" title="Switch theme" style="padding:8px 12px;font-size:16px;">🌙</button>
     <button class="btn btn-ghost" id="inbox-btn" onclick="requireAuth(() => showPage('messages'))" title="Messages" style="padding:8px 12px;position:relative;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span id="inbox-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--accent2);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;">0</span>
     </button>
     <button class="btn btn-ghost" id="notif-btn" onclick="toggleNotifPanel()" title="Notifications" style="padding:8px 12px;position:relative;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -1233,9 +1234,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
     Upload
   </a>
-  <a id="bn-messages" onclick="requireAuth(() => showPage('messages'))">
+  <a id="bn-messages" onclick="requireAuth(() => showPage('messages'))" style="position:relative;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     Messages
+    <span id="bn-msg-badge" style="display:none;position:absolute;top:6px;right:22%;background:var(--accent2);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;line-height:15px;text-align:center;padding:0 3px;">0</span>
   </a>
   <a id="bn-menu" onclick="openMenuSheet()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -1409,14 +1411,19 @@ auth.onAuthStateChanged(async user => {
     } catch (e) { console.error('Profile sync failed:', e); }
     closeModal('auth-modal');
     loadNotifications(false);
+    refreshMsgBadge();
     checkAdmin();
     if (notifPoll) clearInterval(notifPoll);
     notifPoll = setInterval(() => loadNotifications(false), 60000);
+    if (msgPoll) clearInterval(msgPoll);
+    msgPoll = setInterval(refreshMsgBadge, 20000);
     if (pendingAction) { const fn = pendingAction; pendingAction = null; fn(); }
   } else {
     myProfile = null;
     isAdminUser = false;
     if (notifPoll) { clearInterval(notifPoll); notifPoll = null; }
+    if (msgPoll) { clearInterval(msgPoll); msgPoll = null; }
+    ['inbox-badge','bn-msg-badge'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
     document.getElementById('notif-badge').style.display = 'none';
     signinBtn.style.display = '';
     avatar.style.display = 'none';
@@ -2139,8 +2146,11 @@ async function loadConversations() {
       const sentPending = c.status === 'pending' && c.requesterId === currentUser?.uid;
       return `
       <div class="chat-item ${c.otherId === activeChatUid ? 'active' : ''}" onclick="openDM('${esc(c.otherId)}')">
-        <div class="ci-name">${esc(c.otherName)}${sentPending ? ' <span style="color:var(--muted);font-weight:400;font-size:11px;">(request sent)</span>' : ''}</div>
-        <div class="ci-last">${c.lastSenderId === currentUser?.uid ? 'You: ' : ''}${esc(c.lastMessage)}</div>
+        <div class="ci-name" style="display:flex;align-items:center;gap:6px;">
+          <span>${esc(c.otherName)}${sentPending ? ' <span style="color:var(--muted);font-weight:400;font-size:11px;">(request sent)</span>' : ''}</span>
+          ${c.unread > 0 ? `<span style="background:var(--accent2);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}
+        </div>
+        <div class="ci-last" style="${c.unread > 0 ? 'color:var(--text);font-weight:500;' : ''}">${c.lastSenderId === currentUser?.uid ? 'You: ' : ''}${esc(c.lastMessage)}</div>
       </div>`;
     };
     const requests = conversations.filter(c => c.status === 'pending' && c.requesterId !== currentUser?.uid);
@@ -2158,8 +2168,9 @@ async function openDM(otherUid) {
   document.getElementById('chat-input-row').style.display = '';
   await refreshThread(true);
   loadConversations();
+  refreshMsgBadge();
   if (chatPoll) clearInterval(chatPoll);
-  chatPoll = setInterval(() => refreshThread(false), 4000);
+  chatPoll = setInterval(() => { refreshThread(false); refreshMsgBadge(); }, 4000);
 }
 
 async function refreshThread(scroll) {
@@ -2670,6 +2681,22 @@ function setupMediaSession(v) {
   } catch {}
 }
 
+// ─── Message unread badges ──────────────────────────────────────
+let msgPoll = null;
+
+async function refreshMsgBadge() {
+  if (!currentUser) return;
+  try {
+    const { unread } = await api('/messages/unread-count', { authRequired: true });
+    [['inbox-badge', unread], ['bn-msg-badge', unread]].forEach(([id, n]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = n > 0 ? 'block' : 'none';
+      el.textContent = n > 9 ? '9+' : n;
+    });
+  } catch { /* non-fatal */ }
+}
+
 // ─── Notifications ──────────────────────────────────────────────
 let notifPoll = null;
 
@@ -2681,7 +2708,7 @@ async function loadNotifications(openPanel) {
     badge.style.display = unread > 0 ? 'block' : 'none';
     badge.textContent = unread > 9 ? '9+' : unread;
     if (openPanel) {
-      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', message_request: '✉️', ad_enquiry: '📣' };
+      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', message_request: '✉️', message: '✉️', ad_enquiry: '📣' };
       document.getElementById('notif-list').innerHTML = notifications.length ? notifications.map(n => `
         <div class="chat-item" style="${n.isNew ? 'background:rgba(62,166,255,0.07);' : ''}" onclick="openNotification('${esc(n.type)}','${esc(n.refId || '')}')">
           <div class="ci-name">${icons[n.type] || '🔔'} ${esc(n.text)}</div>
@@ -2709,7 +2736,7 @@ function toggleNotifPanel() {
 function openNotification(type, refId) {
   document.getElementById('notif-panel').style.display = 'none';
   if (type === 'comment' || type === 'tip') { if (refId) openVideo(refId); }
-  else if (type === 'message_request') { if (refId) openDM(refId); else showPage('messages'); }
+  else if (type === 'message_request' || type === 'message') { if (refId) openDM(refId); else showPage('messages'); }
   else if (type === 'subscriber') { showPage('channel'); }
   else if (type === 'ad_enquiry') { showPage('advertise'); }
 }
