@@ -391,9 +391,12 @@
         min-height: 320px;                  /* never collapse, whatever the viewport reports */
       }
       /* Message list must own the scroll, not the page */
-      .chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-      .chat-thread { min-height: 0; }
+      .chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+      .chat-thread { min-height: 0; overflow: hidden; }   /* without this, msgs overflow instead of scrolling */
+      .chat-header { flex: 0 0 auto; }
       .chat-input-row { flex: 0 0 auto; }
+      #chat-img-preview { flex: 0 0 auto; }
+      .chat-request { flex: 0 0 auto; }
       .chat-list { display: block !important; border-right: none; }
       .chat-thread { display: none; }
       body.chat-open .chat-list { display: none !important; }
@@ -2375,7 +2378,7 @@ async function refreshThread(scroll) {
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
     box.innerHTML = messages.length ? messages.map(m => `
       <div class="msg ${m.senderId === currentUser?.uid ? 'mine' : 'theirs'}">
-        ${m.imageUrl ? `<img class="msg-photo" src="${esc(m.imageUrl)}" loading="lazy" onclick="openLightbox('${esc(m.imageUrl)}')" alt="Photo" />` : ''}${m.text ? esc(m.text) : ''}<span class="m-time">${timeAgo(m.createdAt)}</span>
+        ${m.imageUrl ? `<img class="msg-photo" src="${esc(m.imageUrl)}" loading="lazy" onclick="openLightbox(this.src)" alt="Photo" />` : ''}${m.text ? esc(m.text) : ''}<span class="m-time">${timeAgo(m.createdAt)}</span>
       </div>`).join('')
       : '<div class="chat-empty">Say hello 👋 — messages are private between you two.</div>';
     if (scroll || atBottom) box.scrollTop = box.scrollHeight;
@@ -3237,14 +3240,18 @@ function clearChatImage() {
 }
 
 function openLightbox(url) {
+  if (!url) return;
+  const box = document.getElementById('lightbox');
   document.getElementById('lightbox-img').src = url;
-  document.getElementById('lightbox').classList.add('open');
-  pushOverlayState('lightbox');
+  box.classList.add('open');
+  document.body.classList.add('drawer-open');
+  try { pushOverlayState('lightbox'); } catch {}   // history must never block the viewer
 }
 function closeLightbox(fromPop) {
   const el = document.getElementById('lightbox');
   const wasOpen = el.classList.contains('open');
   el.classList.remove('open');
+  document.body.classList.remove('drawer-open');
   document.getElementById('lightbox-img').src = '';
   if (wasOpen && !fromPop && history.state?.overlay === 'lightbox') history.back();
 }
