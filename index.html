@@ -337,14 +337,22 @@
       .channel-header-info p { font-size: 13px; line-height: 1.5; word-break: break-word; }
       .channel-header .btn, .channel-header .btn-subscribe { width: 100%; max-width: 260px; padding: 10px 20px; }
 
-      /* Nav: menu + logo + search + essential icons */
-      nav { padding: 0 12px; gap: 8px; }
-      #menu-btn { padding: 8px 10px; }
-      .nav-search { max-width: none; margin: 0; }
-      .nav-logo { font-size: 17px; }
-      .btn-upload span, #theme-btn { display: none; }
-      .nav-right { gap: 4px; }
-      .nav-right .btn { padding: 8px 10px; }
+      /* Top bar = brand header. Navigation lives in the bottom bar. */
+      nav { padding: 0 14px; gap: 10px; height: 56px; }
+      .nav-logo {
+        font-size: 19px;
+        flex: 0 0 auto;                 /* never squeezed out by the search box */
+        margin-right: 0;
+      }
+      .nav-search {
+        flex: 1 1 auto;
+        min-width: 0;                   /* allows shrinking instead of pushing the logo away */
+        max-width: none; margin: 0;
+      }
+      .nav-search input { padding: 8px 12px 8px 36px; font-size: 13px; }
+      /* Everything else moves to the bottom bar / menu sheet */
+      .nav-right { display: none !important; }
+      .main { padding-top: 56px; }
 
       /* Player */
       .player-title { font-size: 18px; }
@@ -511,6 +519,8 @@
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
     View<span>Tube</span>
   </a>
+  <button class="btn btn-primary mobile-only" id="mobile-signin" onclick="openModal('auth-modal')" style="padding:6px 14px;font-size:13px;margin-left:auto;flex:0 0 auto;">Sign In</button>
+  <div class="avatar mobile-only" id="mobile-avatar" style="display:none;width:32px;height:32px;font-size:13px;flex:0 0 auto;margin-left:auto;" onclick="openMenuSheet()">U</div>
   <div class="nav-search">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="text" id="search-input" placeholder="Search videos, channels..." onkeydown="if(event.key==='Enter')runSearch(this.value)" />
@@ -1411,6 +1421,13 @@ function refreshNavAvatar() {
   const el = document.getElementById('nav-avatar');
   el.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
   document.getElementById('comment-avatar').innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+  const mAv = document.getElementById('mobile-avatar');
+  const mIn = document.getElementById('mobile-signin');
+  if (mAv && mIn) {
+    mAv.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+    mAv.style.display = currentUser ? 'flex' : 'none';
+    mIn.style.display = currentUser ? 'none' : 'inline-flex';
+  }
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 function fmtNum(n) { n = Number(n) || 0; if (n >= 1e6) return (n/1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n/1e3).toFixed(1) + 'K'; return String(n); }
@@ -1479,6 +1496,9 @@ auth.onAuthStateChanged(async user => {
   } else {
     myProfile = null;
     isAdminUser = false;
+    const mAv = document.getElementById('mobile-avatar'), mIn = document.getElementById('mobile-signin');
+    if (mAv) mAv.style.display = 'none';
+    if (mIn) mIn.style.display = 'inline-flex';
     if (notifPoll) { clearInterval(notifPoll); notifPoll = null; }
     if (msgPoll) { clearInterval(msgPoll); msgPoll = null; }
     ['inbox-badge','bn-msg-badge','notif-badge','bn-notif-badge'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
