@@ -320,6 +320,13 @@
     .legal-doc h2 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; }
     .legal-doc p { font-size: 14px; line-height: 1.75; color: var(--text); margin-bottom: 10px; }
     .legal-doc .legal-meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    /* image uploads */
+    .img-picker { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+    .img-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #3f3f3f; border: 1px solid var(--border); flex-shrink: 0; }
+    .img-preview.cover { width: 160px; height: 54px; border-radius: 8px; }
+    .img-preview.thumb { width: 128px; height: 72px; border-radius: 8px; }
+    .avatar img, .ch-avatar img, .video-avatar img, .channel-big-avatar img, .c-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+    .channel-banner.has-cover { background-size: cover; background-position: center; }
     /* background audio mode */
     .player-wrap.audio-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
     .audio-cover { aspect-ratio: 16/9; border-radius: var(--radius); background: linear-gradient(135deg, #1a1a1a, #0f0f0f); border: 1px solid var(--border); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
@@ -657,6 +664,16 @@
           <label class="form-label">Tags (comma separated)</label>
           <input type="text" class="form-input" id="video-tags-input" placeholder="tech, review, howto" />
         </div>
+        <div class="form-group">
+          <label class="form-label">Custom Thumbnail (optional — we auto-generate one otherwise)</label>
+          <div class="img-picker">
+            <img class="img-preview thumb" id="thumb-preview" alt="" />
+            <div>
+              <button class="btn btn-ghost" onclick="document.getElementById('thumb-file').click()">Choose Image</button>
+              <input type="file" id="thumb-file" accept="image/*" style="display:none" onchange="pickImage(this,'thumb')" />
+            </div>
+          </div>
+        </div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">By publishing you confirm this content is yours or licensed to you, and that it follows our <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); showLegal('safety')">Safety Guidelines</a> and <a href="#" style="color:var(--accent);" onclick="event.preventDefault(); showLegal('copyright')">Copyright Policy</a>.</p>
         <div style="display:flex;gap:12px;margin-top:8px;">
           <button class="btn btn-primary" id="publish-btn" onclick="publishVideo()" style="flex:1;padding:12px;" disabled>Publish Video</button>
@@ -971,7 +988,28 @@
     <button class="modal-close" onclick="closeModal('profile-modal')">✕</button>
     <h2>Edit Profile</h2>
     <p>Your channel details. M-Pesa number is where your earnings are paid out.</p>
+    <div class="form-group">
+      <label class="form-label">Profile Picture</label>
+      <div class="img-picker">
+        <img class="img-preview" id="avatar-preview" alt="" />
+        <div>
+          <button class="btn btn-ghost" onclick="document.getElementById('avatar-file').click()">Choose Image</button>
+          <input type="file" id="avatar-file" accept="image/*" style="display:none" onchange="pickImage(this,'avatar')" />
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Channel Cover</label>
+      <div class="img-picker">
+        <img class="img-preview cover" id="cover-preview" alt="" />
+        <div>
+          <button class="btn btn-ghost" onclick="document.getElementById('cover-file').click()">Choose Image</button>
+          <input type="file" id="cover-file" accept="image/*" style="display:none" onchange="pickImage(this,'cover')" />
+        </div>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">Channel Name</label><input class="form-input" id="profile-name" maxlength="50" /></div>
+    <div class="form-group"><label class="form-label">Username</label><input class="form-input" id="profile-username" disabled style="opacity:.7;" /></div>
     <div class="form-group"><label class="form-label">Bio</label><textarea class="form-input" id="profile-bio" maxlength="1000"></textarea></div>
     <div class="form-group"><label class="form-label">M-Pesa Payout Number</label><input class="form-input" type="tel" id="profile-mpesa" placeholder="0712345678" /></div>
     <button class="btn btn-primary" style="width:100%;padding:12px;" id="profile-save-btn" onclick="saveProfile()">Save Profile</button>
@@ -1042,6 +1080,7 @@ let activeChatStatus = 'accepted', activeChatRequester = null;
 let userSearchTimer = null;
 let upNextQueue = [];
 let audioMode = false;
+let pendingImages = { avatar: null, cover: null, thumb: null };
 const DEVICE_ID = (() => {
   try {
     let id = localStorage.getItem('vt_device');
@@ -1051,6 +1090,15 @@ const DEVICE_ID = (() => {
 })();
 
 // ─── Utilities ──────────────────────────────────────────────────
+function avatarHTML(url, name, cls) {
+  const initial = esc((name || 'U')[0].toUpperCase());
+  return url ? `<img src="${esc(url)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${initial}'))" />` : initial;
+}
+function refreshNavAvatar() {
+  const el = document.getElementById('nav-avatar');
+  el.innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+  document.getElementById('comment-avatar').innerHTML = avatarHTML(myProfile?.photoURL, myProfile?.displayName);
+}
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 function fmtNum(n) { n = Number(n) || 0; if (n >= 1e6) return (n/1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n/1e3).toFixed(1) + 'K'; return String(n); }
 function fmtDuration(sec) { sec = Math.round(Number(sec) || 0); const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60; return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`; }
@@ -1103,10 +1151,8 @@ auth.onAuthStateChanged(async user => {
     avatar.style.display = 'flex';
     try {
       myProfile = await api('/auth/sync', { method: 'POST', authRequired: true });
-      const initial = (myProfile.displayName || 'U')[0].toUpperCase();
-      avatar.textContent = initial;
-      document.getElementById('comment-avatar').textContent = initial;
-      document.getElementById('user-menu-name').textContent = myProfile.displayName;
+      refreshNavAvatar();
+      document.getElementById('user-menu-name').textContent = myProfile.displayName + (myProfile.username ? ` @${myProfile.username}` : '');
     } catch (e) { console.error('Profile sync failed:', e); }
     closeModal('auth-modal');
     loadNotifications(false);
@@ -1209,7 +1255,7 @@ function videoCardHTML(v) {
         <div class="video-duration">${fmtDuration(v.duration)}</div>
       </div>
       <div class="video-info">
-        <div class="video-avatar">${name[0] || 'C'}</div>
+        <div class="video-avatar">${avatarHTML(v.channelPhotoURL, v.channelName)}</div>
         <div class="video-meta">
           <div class="video-title">${esc(v.title || 'Untitled')}</div>
           <div class="video-sub"><a>${name}</a> · ${fmtNum(v.views)} views · ${timeAgo(v.createdAt)}</div>
@@ -1359,8 +1405,8 @@ async function openVideo(id) {
     const ch = v.channel || { displayName: v.channelName || 'Creator', subscriberCount: 0 };
     document.getElementById('player-ch-name').textContent = ch.displayName;
     document.getElementById('player-ch-name').onclick = () => loadChannelPage(v.uploaderId);
-    document.getElementById('player-ch-avatar').textContent = (ch.displayName || 'C')[0].toUpperCase();
-    document.getElementById('player-ch-subs').textContent = fmtNum(ch.subscriberCount) + ' subscribers';
+    document.getElementById('player-ch-avatar').innerHTML = avatarHTML(ch.photoURL, ch.displayName);
+    document.getElementById('player-ch-subs').textContent = (ch.username ? `@${ch.username} · ` : '') + fmtNum(ch.subscriberCount) + ' subscribers';
     setSubButton(!!v.subscribed);
 
     loadComments(v.id);
@@ -1422,7 +1468,7 @@ async function loadComments(videoId) {
     Object.values(repliesByParent).forEach(arr => arr.sort((a,b) => (a.createdAt?.seconds ?? a.createdAt?._seconds ?? 0) - (b.createdAt?.seconds ?? b.createdAt?._seconds ?? 0)));
     const commentHTML = (c, isReply) => `
       <div class="comment" id="comment-${esc(c.id)}">
-        <div class="c-avatar">${esc((c.displayName || '?')[0].toUpperCase())}</div>
+        <div class="c-avatar">${avatarHTML(c.photoURL, c.displayName)}</div>
         <div class="c-body">
           <div class="c-header"><strong>${esc(c.displayName)}</strong><span>${timeAgo(c.createdAt)}</span></div>
           <div class="c-text">${esc(c.text)}</div>
@@ -1613,6 +1659,7 @@ async function publishVideo() {
         category: document.getElementById('video-cat-input').value,
         visibility: document.getElementById('video-vis-input').value,
         tags: document.getElementById('video-tags-input').value.split(',').map(t => t.trim()).filter(Boolean),
+        ...(pendingImages.thumb ? { thumbImageId: pendingImages.thumb } : {}),
       },
     });
     showToast('🎉 Video published! It will appear once processing finishes.');
@@ -1624,6 +1671,8 @@ async function publishVideo() {
 
 function cancelUpload() { resetUploadUI(); showPage('home'); }
 function resetUploadUI() {
+  pendingImages.thumb = null;
+  const tp = document.getElementById('thumb-preview'); if (tp) { tp.src = ''; tp.style.display = 'none'; }
   document.getElementById('upload-step-1').style.display = 'block';
   document.getElementById('upload-step-2').style.display = 'none';
   ['video-title-input','video-desc-input','video-tags-input'].forEach(id => document.getElementById(id).value = '');
@@ -1649,15 +1698,22 @@ async function loadChannel(uid) {
       api('/channels/' + encodeURIComponent(uid) + '/videos'),
     ]);
     document.getElementById('channel-name').textContent = ch.displayName;
-    document.getElementById('channel-avatar').textContent = (ch.displayName || 'C')[0].toUpperCase();
-    document.getElementById('channel-stats').textContent = `${fmtNum(ch.subscriberCount)} subscribers · ${fmtNum(ch.videoCount)} videos`;
+    document.getElementById('channel-avatar').innerHTML = avatarHTML(ch.photoURL, ch.displayName);
+    const banner = document.querySelector('#page-channel .channel-banner');
+    if (ch.coverURL) { banner.classList.add('has-cover'); banner.style.backgroundImage = `url('${ch.coverURL}')`; }
+    else { banner.classList.remove('has-cover'); banner.style.backgroundImage = ''; }
+    document.getElementById('channel-stats').textContent = (ch.username ? `@${ch.username} · ` : '') + `${fmtNum(ch.subscriberCount)} subscribers · ${fmtNum(ch.videoCount)} videos`;
     document.getElementById('channel-bio').textContent = ch.bio || '';
     grid.innerHTML = vids.videos.map(videoCardHTML).join('');
     document.getElementById('channel-empty').style.display = vids.videos.length ? 'none' : 'block';
     if (isMine && myProfile) {
       document.getElementById('profile-name').value = myProfile.displayName || '';
+      document.getElementById('profile-username').value = myProfile.username ? '@' + myProfile.username : '';
       document.getElementById('profile-bio').value = myProfile.bio || '';
       document.getElementById('profile-mpesa').value = myProfile.mpesaNumber || '';
+      const ap = document.getElementById('avatar-preview'), cp = document.getElementById('cover-preview');
+      if (myProfile.photoURL) { ap.src = myProfile.photoURL; ap.style.display = 'block'; } else ap.style.display = 'none';
+      if (myProfile.coverURL) { cp.src = myProfile.coverURL; cp.style.display = 'block'; } else cp.style.display = 'none';
     }
   } catch (e) { grid.innerHTML = `<div class="error-banner" style="grid-column:1/-1;">${esc(e.message)}</div>`; }
 }
@@ -1682,9 +1738,13 @@ async function saveProfile() {
         displayName: document.getElementById('profile-name').value,
         bio: document.getElementById('profile-bio').value,
         mpesaNumber: document.getElementById('profile-mpesa').value,
+        ...(pendingImages.avatar ? { photoImageId: pendingImages.avatar } : {}),
+        ...(pendingImages.cover ? { coverImageId: pendingImages.cover } : {}),
       },
     });
     myProfile = await api('/auth/sync', { method: 'POST', authRequired: true });
+    pendingImages.avatar = pendingImages.cover = null;
+    refreshNavAvatar();
     closeModal('profile-modal');
     showToast('Profile saved');
     loadChannel(currentUser.uid);
@@ -2390,6 +2450,59 @@ function openNotification(type, refId) {
   if (type === 'comment' || type === 'tip') { if (refId) openVideo(refId); }
   else if (type === 'message_request') { if (refId) openDM(refId); else showPage('messages'); }
   else if (type === 'subscriber') { showPage('channel'); }
+}
+
+// ─── Images: compress in-browser, then upload ───────────────────
+const IMG_SPECS = {
+  avatar: { max: 400,  quality: 0.85, preview: 'avatar-preview' },
+  cover:  { max: 1280, quality: 0.82, preview: 'cover-preview'  },
+  thumb:  { max: 1280, quality: 0.82, preview: 'thumb-preview'  },
+};
+
+function compressImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      let { width: w, height: h } = img;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Not a valid image')); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function pickImage(input, kind) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) return showToast('Please choose an image file', true);
+  const spec = IMG_SPECS[kind];
+  try {
+    showToast('Optimizing image…');
+    let blob = await compressImage(file, spec.max, spec.quality);
+    // Second pass if still large
+    if (blob.size > 400 * 1024) blob = await compressImage(file, Math.round(spec.max * 0.75), 0.7);
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = () => rej(new Error('Read failed'));
+      r.readAsDataURL(blob);
+    });
+    const { id, url } = await api('/images', { method: 'POST', authRequired: true, body: { data: base64, mime: 'image/jpeg' } });
+    pendingImages[kind] = id;
+    const prev = document.getElementById(spec.preview);
+    prev.src = url;
+    prev.style.display = 'block';
+    showToast(`Image ready (${Math.round(blob.size/1024)}KB)`);
+  } catch (e) { showToast(e.message, true); }
 }
 
 // ─── Legal pages ────────────────────────────────────────────────

@@ -97,6 +97,25 @@ function sanitizeText(str, maxLen) {
 const VALID_CATEGORIES = ['Tech', 'Music', 'Gaming', 'Education', 'Sports', 'Comedy', 'News', 'Travel', 'Food', 'Other'];
 const VALID_VISIBILITY = ['public', 'unlisted', 'private'];
 
+// Generate a unique @username from a display name (transactional claim)
+async function claimUsername(displayName, uid) {
+  const base = (String(displayName).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || 'creator');
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const candidate = attempt === 0 ? base : base + Math.floor(100 + Math.random() * 9900);
+    const claimRef = db.collection('usernames').doc(candidate);
+    try {
+      const ok = await db.runTransaction(async tx => {
+        const doc = await tx.get(claimRef);
+        if (doc.exists) return false;
+        tx.set(claimRef, { uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+        return true;
+      });
+      if (ok) return candidate;
+    } catch { /* retry */ }
+  }
+  return base + Date.now().toString().slice(-6);
+}
+
 // Fire-and-forget notification creation
 function notify(userId, type, text, refId) {
   if (!userId) return;
@@ -186,11 +205,15 @@ app.post('/auth/sync', authMiddleware, wrap(async (req, res) => {
   const userRef = db.collection('users').doc(req.user.uid);
   const doc = await userRef.get();
   if (!doc.exists) {
+    const displayName = req.user.name || req.user.email?.split('@')[0] || 'Creator';
+    const username = await claimUsername(displayName, req.user.uid);
     await userRef.set({
-      displayName: req.user.name || req.user.email?.split('@')[0] || 'Creator',
-      displayNameLower: (req.user.name || req.user.email?.split('@')[0] || 'creator').toLowerCase(),
+      displayName,
+      displayNameLower: displayName.toLowerCase(),
+      username,
       email: req.user.email || null,
       photoURL: req.user.picture || null,
+      coverURL: null,
       bio: '',
       subscriberCount: 0,
       videoCount: 0,
@@ -201,6 +224,10 @@ app.post('/auth/sync', authMiddleware, wrap(async (req, res) => {
   // Backfill searchable lowercase name for existing users
   if (fresh.exists && !fresh.data().displayNameLower && fresh.data().displayName) {
     await userRef.update({ displayNameLower: fresh.data().displayName.toLowerCase() });
+  }
+  if (fresh.exists && !fresh.data().username) {
+    const uname = await claimUsername(fresh.data().displayName || 'creator', req.user.uid);
+    await userRef.update({ username: uname });
   }
   res.json({ id: fresh.id, ...fresh.data() });
 }));
@@ -275,6 +302,11 @@ app.post('/videos/:uid/publish', authMiddleware, writeLimiter, wrap(async (req, 
     return res.status(400).json({ error: 'Videos must be 5 minutes or shorter. This upload was removed.' });
   }
 
+  let customThumb = null;
+  if (req.body.thumbImageId) {
+    customThumb = await verifyOwnImage(req.body.thumbImageId, req.user.uid);
+    if (!customThumb) return res.status(400).json({ error: 'Invalid thumbnail image' });
+  }
   await videoRef.update({
     title,
     titleLower: title.toLowerCase(),
@@ -283,7 +315,9 @@ app.post('/videos/:uid/publish', authMiddleware, writeLimiter, wrap(async (req, 
     tags,
     visibility,
     channelName: userDoc.data()?.displayName || 'Creator',
-    thumbnailUrl: cfVideo.thumbnail || null,
+    channelPhotoURL: userDoc.data()?.photoURL || null,
+    channelUsername: userDoc.data()?.username || null,
+    thumbnailUrl: customThumb || cfVideo.thumbnail || null,
     duration: cfVideo.duration || 0,
     status: cfVideo.readyToStream ? 'live' : 'processing',
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -314,7 +348,7 @@ app.post('/videos/cf-webhook', wrap(async (req, res) => {
     const ref = db.collection('videos').doc(uid);
     const doc = await ref.get();
     if (doc.exists && doc.data().status !== 'uploading') {
-      await ref.update({ status: 'live', thumbnailUrl: thumbnail || doc.data().thumbnailUrl || null, duration: duration || doc.data().duration || 0 });
+      await ref.update({ status: 'live', thumbnailUrl: doc.data().thumbnailUrl || thumbnail || null, duration: duration || doc.data().duration || 0 });
     }
   }
   res.json({ ok: true });
@@ -382,7 +416,7 @@ app.get('/videos/:id', optionalAuth, wrap(async (req, res) => {
     try {
       const cf = await getCFVideo(v.cloudflareUid || doc.id);
       if (cf.readyToStream) {
-        const patch = { status: 'live', thumbnailUrl: cf.thumbnail || v.thumbnailUrl || null, duration: cf.duration || v.duration || 0 };
+        const patch = { status: 'live', thumbnailUrl: v.thumbnailUrl || cf.thumbnail || null, duration: cf.duration || v.duration || 0 };
         await doc.ref.update(patch);
         Object.assign(v, patch);
       }
@@ -400,7 +434,7 @@ app.get('/videos/:id', optionalAuth, wrap(async (req, res) => {
     myReaction = reactDoc.exists ? reactDoc.data().type : null;
   }
   const channelDoc = await db.collection('users').doc(v.uploaderId).get();
-  res.json({ id: doc.id, ...v, liked, subscribed, myReaction, channel: channelDoc.exists ? { id: channelDoc.id, displayName: channelDoc.data().displayName, subscriberCount: channelDoc.data().subscriberCount || 0, photoURL: channelDoc.data().photoURL || null } : null });
+  res.json({ id: doc.id, ...v, liked, subscribed, myReaction, channel: channelDoc.exists ? { id: channelDoc.id, displayName: channelDoc.data().displayName, username: channelDoc.data().username || null, subscriberCount: channelDoc.data().subscriberCount || 0, photoURL: channelDoc.data().photoURL || null } : null });
 }));
 
 app.get('/videos/:id/related', wrap(async (req, res) => {
@@ -549,6 +583,7 @@ app.post('/videos/:id/comments', authMiddleware, writeLimiter, wrap(async (req, 
     videoId: req.params.id,
     userId: req.user.uid,
     displayName: userDoc.data()?.displayName || 'Viewer',
+    photoURL: userDoc.data()?.photoURL || null,
     text,
     parentId,
     likes: 0,
@@ -587,8 +622,8 @@ app.post('/comments/:id/like', authMiddleware, writeLimiter, wrap(async (req, re
 app.get('/channels/:uid', wrap(async (req, res) => {
   const doc = await db.collection('users').doc(req.params.uid).get();
   if (!doc.exists) return res.status(404).json({ error: 'Channel not found' });
-  const { displayName, bio, photoURL, subscriberCount, videoCount, createdAt } = doc.data();
-  res.json({ id: doc.id, displayName, bio, photoURL, subscriberCount: subscriberCount || 0, videoCount: videoCount || 0, createdAt });
+  const { displayName, bio, photoURL, coverURL, username, subscriberCount, videoCount, createdAt } = doc.data();
+  res.json({ id: doc.id, displayName, bio, photoURL: photoURL || null, coverURL: coverURL || null, username: username || null, subscriberCount: subscriberCount || 0, videoCount: videoCount || 0, createdAt });
 }));
 
 app.get('/channels/:uid/videos', wrap(async (req, res) => {
@@ -654,6 +689,16 @@ app.put('/users/profile', authMiddleware, writeLimiter, wrap(async (req, res) =>
     update.displayNameLower = name.toLowerCase();
   }
   if (req.body.bio !== undefined) update.bio = sanitizeText(req.body.bio, 1000);
+  if (req.body.photoImageId !== undefined) {
+    const url = await verifyOwnImage(req.body.photoImageId, req.user.uid);
+    if (req.body.photoImageId && !url) return res.status(400).json({ error: 'Invalid profile image' });
+    update.photoURL = url;
+  }
+  if (req.body.coverImageId !== undefined) {
+    const url = await verifyOwnImage(req.body.coverImageId, req.user.uid);
+    if (req.body.coverImageId && !url) return res.status(400).json({ error: 'Invalid cover image' });
+    update.coverURL = url;
+  }
   if (req.body.location !== undefined) update.location = sanitizeText(req.body.location, 100);
   if (req.body.mpesaNumber !== undefined) {
     const phone = normalizePhone(req.body.mpesaNumber);
@@ -760,6 +805,43 @@ app.post('/mpesa/callback', wrap(async (req, res) => {
   }
   res.json({ ResultCode: 0, ResultDesc: 'Success' });
 }));
+
+// ═══════════════════════════════════════════════════════════════
+// IMAGES — avatars, covers, thumbnails (compressed client-side,
+// stored in Firestore, served with long-lived cache headers)
+// ═══════════════════════════════════════════════════════════════
+const IMG_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+
+app.post('/images', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const { data, mime } = req.body;
+  if (!IMG_MIMES.includes(mime)) return res.status(400).json({ error: 'Unsupported image type' });
+  if (typeof data !== 'string' || data.length < 100) return res.status(400).json({ error: 'Missing image data' });
+  if (data.length > 700 * 1024) return res.status(400).json({ error: 'Image too large — must be under ~500KB after compression' });
+  if (!/^[A-Za-z0-9+/=]+$/.test(data)) return res.status(400).json({ error: 'Invalid image encoding' });
+  const ref = await db.collection('images').add({
+    ownerId: req.user.uid, mime, data,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  const base = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
+  res.json({ id: ref.id, url: `${base}/img/${ref.id}` });
+}));
+
+app.get('/img/:id', wrap(async (req, res) => {
+  const doc = await db.collection('images').doc(req.params.id).get();
+  if (!doc.exists) return res.status(404).send('Not found');
+  const { mime, data } = doc.data();
+  res.set('Content-Type', mime);
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(Buffer.from(data, 'base64'));
+}));
+
+async function verifyOwnImage(imageId, uid) {
+  if (!imageId) return null;
+  const doc = await db.collection('images').doc(String(imageId)).get();
+  if (!doc.exists || doc.data().ownerId !== uid) return null;
+  const base = process.env.API_URL || '';
+  return `${base}/img/${doc.id}`;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // NOTIFICATIONS
