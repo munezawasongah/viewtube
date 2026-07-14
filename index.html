@@ -333,6 +333,10 @@
       .sidebar .mobile-only:not([hidden]) { display: flex !important; }
       .main { margin-left: 0; padding-top: 60px; padding-left: 0; padding-right: 0; padding-bottom: 70px; }
       .page { padding: 16px 14px 24px; }
+      /* Messages is a full-height app screen — tighten its padding so the chat fits
+         exactly between the top bar and the bottom tab bar. */
+      #page-messages { padding: 12px 10px 8px; }
+      #page-messages .section-title { margin-bottom: 8px; }
       .player-layout { grid-template-columns: 1fr; gap: 20px; }
       .hero { padding: 28px 20px; }
       .hero h1 { font-size: 30px; }
@@ -386,9 +390,12 @@
       /* Chat becomes single-pane: list OR thread */
       .chat-layout {
         grid-template-columns: 1fr;
-        height: calc(100vh - 200px);        /* fallback: Android 12 / Chrome < 108 */
-        height: calc(100dvh - 200px);       /* modern: accounts for browser chrome */
-        min-height: 320px;                  /* never collapse, whatever the viewport reports */
+        /* Viewport MINUS: top nav (56) + bottom tab bar (62) + page padding (~40).
+           The old value ignored the tab bar, so the input row rendered underneath it. */
+        height: calc(100vh - 175px);        /* fallback: Android 12 / Chrome < 108 */
+        height: calc(100dvh - 175px);       /* modern: accounts for browser chrome */
+        min-height: 300px;
+        margin-bottom: 0;
       }
       /* Message list must own the scroll, not the page */
       .chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
