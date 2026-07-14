@@ -1491,6 +1491,19 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 
+// Resolves once Firebase has finished restoring any persisted session.
+// Without this, code that runs at startup sees a transient `null` user and
+// wrongly concludes the person is signed out (this caused a flash to home).
+let _authReady = null;
+function authReady() {
+  if (!_authReady) {
+    _authReady = new Promise(resolve => {
+      const stop = auth.onAuthStateChanged(u => { stop(); resolve(u); });
+    });
+  }
+  return _authReady;
+}
+
 let currentUser = null;      // firebase user
 let myProfile = null;        // user doc from API
 let currentVideo = null;
@@ -3433,12 +3446,13 @@ if (startPage !== 'home') {
   } else if (deepPage && document.getElementById('page-' + deepPage)) {
     const gated = ['messages', 'studio', 'upload', 'golive', 'subscriptions', 'channel'];
     if (gated.includes(deepPage)) {
-      // Auth-gated: wait for Firebase to confirm the session, THEN load the data.
-      // The page is already on screen, so the user never sees home.
-      const stop = firebase.auth().onAuthStateChanged(u => {
-        stop();
+      // Firebase fires onAuthStateChanged with null FIRST (while restoring the
+      // persisted session), then again with the real user. Treating that first null
+      // as "signed out" is what caused the home flicker. Use the promise-based
+      // resolution, which only settles once auth is actually known.
+      authReady().then(u => {
         if (u) loadPageData(deepPage);
-        else showPage('home');   // genuinely not signed in → fall back
+        else showPage('home');   // genuinely signed out, only once auth has settled
       });
     } else {
       loadPageData(deepPage);
