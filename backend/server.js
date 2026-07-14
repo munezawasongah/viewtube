@@ -97,6 +97,15 @@ function sanitizeText(str, maxLen) {
 const VALID_CATEGORIES = ['Tech', 'Music', 'Gaming', 'Education', 'Sports', 'Comedy', 'News', 'Travel', 'Food', 'Other'];
 const VALID_VISIBILITY = ['public', 'unlisted', 'private'];
 
+// Fire-and-forget notification creation
+function notify(userId, type, text, refId) {
+  if (!userId) return;
+  db.collection('notifications').add({
+    userId, type, text: String(text).slice(0, 200), refId: refId || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  }).catch(() => {});
+}
+
 // Async route wrapper so thrown errors hit the error handler
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -546,6 +555,10 @@ app.post('/videos/:id/comments', authMiddleware, writeLimiter, wrap(async (req, 
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   await videoDoc.ref.update({ commentCount: admin.firestore.FieldValue.increment(1) });
+  if (videoDoc.data().uploaderId !== req.user.uid) {
+    notify(videoDoc.data().uploaderId, 'comment',
+      `${userDoc.data()?.displayName || 'Someone'} commented on "${videoDoc.data().title || 'your video'}"`, req.params.id);
+  }
   res.json({ id: ref.id, parentId });
 }));
 
@@ -604,6 +617,10 @@ app.post('/channels/:uid/subscribe', authMiddleware, writeLimiter, wrap(async (r
     tx.update(channelRef, { subscriberCount: admin.firestore.FieldValue.increment(1) });
     return true;
   });
+  if (result) {
+    const subDoc = await db.collection('users').doc(req.user.uid).get();
+    notify(req.params.uid, 'subscriber', `${subDoc.data()?.displayName || 'Someone'} subscribed to your channel 🎉`, req.user.uid);
+  }
   res.json({ subscribed: result });
 }));
 
@@ -737,10 +754,32 @@ app.post('/mpesa/callback', wrap(async (req, res) => {
         [field]: admin.firestore.FieldValue.increment(data.amount),
         total: admin.firestore.FieldValue.increment(data.amount),
       }, { merge: true });
+      notify(creatorId, 'tip', `You received a KSh ${data.amount} ${coll === 'tips' ? 'tip' : 'membership payment'} 🎉`, data.videoId || null);
     }
     break;
   }
   res.json({ ResultCode: 0, ResultDesc: 'Success' });
+}));
+
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════
+app.get('/notifications', authMiddleware, wrap(async (req, res) => {
+  const [snap, userDoc] = await Promise.all([
+    db.collection('notifications').where('userId', '==', req.user.uid).orderBy('createdAt', 'desc').limit(30).get(),
+    db.collection('users').doc(req.user.uid).get(),
+  ]);
+  const readAt = userDoc.data()?.notifReadAt?.seconds || 0;
+  const items = snap.docs.map(d => {
+    const n = d.data();
+    return { id: d.id, ...n, isNew: (n.createdAt?.seconds || 0) > readAt };
+  });
+  res.json({ notifications: items, unread: items.filter(n => n.isNew).length });
+}));
+
+app.post('/notifications/read', authMiddleware, wrap(async (req, res) => {
+  await db.collection('users').doc(req.user.uid).set({ notifReadAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  res.json({ success: true });
 }));
 
 // ═══════════════════════════════════════════════════════════════
@@ -809,6 +848,8 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     update.status = 'pending';
     update.requesterId = req.user.uid;
     update.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    const senderDoc = await db.collection('users').doc(req.user.uid).get();
+    notify(otherUid, 'message_request', `${senderDoc.data()?.displayName || 'Someone'} sent you a message request`, req.user.uid);
   } else {
     const c = convoDoc.data();
     const status = c.status || 'accepted'; // conversations from before this feature count as accepted

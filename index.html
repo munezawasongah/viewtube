@@ -368,8 +368,19 @@
       Upload
     </button>
     <button class="btn btn-ghost" id="theme-btn" onclick="toggleTheme()" title="Switch theme" style="padding:8px 12px;font-size:16px;">🌙</button>
+    <button class="btn btn-ghost" id="inbox-btn" onclick="requireAuth(() => showPage('messages'))" title="Messages" style="padding:8px 12px;position:relative;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <button class="btn btn-ghost" id="notif-btn" onclick="toggleNotifPanel()" title="Notifications" style="padding:8px 12px;position:relative;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--accent2);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;">0</span>
+    </button>
     <button class="btn btn-primary" id="signin-btn" onclick="openModal('auth-modal')">Sign In</button>
     <div class="avatar" id="nav-avatar" style="display:none;" onclick="toggleUserMenu()" title="Account">U</div>
+    <div id="notif-panel" style="display:none; position:absolute; top:56px; right:64px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); z-index:300; width:340px; max-height:440px; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+      <div style="padding:14px 16px; font-weight:700; font-size:15px; border-bottom:1px solid var(--border);">Notifications</div>
+      <div id="notif-list"><div class="chat-empty" style="padding:30px;">No notifications yet</div></div>
+    </div>
     <div id="user-menu" style="display:none; position:absolute; top:56px; right:20px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:8px; z-index:300; min-width:180px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
       <div style="padding:10px 12px; font-size:14px; font-weight:600;" id="user-menu-name"></div>
       <div class="sidebar-item" onclick="toggleUserMenu(); showPage('channel')">Your Channel</div>
@@ -1098,9 +1109,14 @@ auth.onAuthStateChanged(async user => {
       document.getElementById('user-menu-name').textContent = myProfile.displayName;
     } catch (e) { console.error('Profile sync failed:', e); }
     closeModal('auth-modal');
+    loadNotifications(false);
+    if (notifPoll) clearInterval(notifPoll);
+    notifPoll = setInterval(() => loadNotifications(false), 60000);
     if (pendingAction) { const fn = pendingAction; pendingAction = null; fn(); }
   } else {
     myProfile = null;
+    if (notifPoll) { clearInterval(notifPoll); notifPoll = null; }
+    document.getElementById('notif-badge').style.display = 'none';
     signinBtn.style.display = '';
     avatar.style.display = 'none';
     document.getElementById('user-menu').style.display = 'none';
@@ -1156,6 +1172,8 @@ function toggleUserMenu() { const m = document.getElementById('user-menu'); m.st
 document.addEventListener('click', e => {
   const menu = document.getElementById('user-menu');
   if (menu.style.display === 'block' && !menu.contains(e.target) && e.target.id !== 'nav-avatar') menu.style.display = 'none';
+  const panel = document.getElementById('notif-panel');
+  if (panel.style.display === 'block' && !panel.contains(e.target) && !document.getElementById('notif-btn').contains(e.target)) panel.style.display = 'none';
 });
 
 // ─── Navigation ─────────────────────────────────────────────────
@@ -2329,6 +2347,49 @@ function setupMediaSession(v) {
     navigator.mediaSession.setActionHandler('play', () => { try { streamPlayer?.play(); } catch {} setTimeout(syncMiniButton, 250); });
     navigator.mediaSession.setActionHandler('pause', () => { try { streamPlayer?.pause(); } catch {} setTimeout(syncMiniButton, 250); });
   } catch {}
+}
+
+// ─── Notifications ──────────────────────────────────────────────
+let notifPoll = null;
+
+async function loadNotifications(openPanel) {
+  if (!currentUser) return;
+  try {
+    const { notifications, unread } = await api('/notifications', { authRequired: true });
+    const badge = document.getElementById('notif-badge');
+    badge.style.display = unread > 0 ? 'block' : 'none';
+    badge.textContent = unread > 9 ? '9+' : unread;
+    if (openPanel) {
+      const icons = { comment: '💬', subscriber: '🔔', tip: '💰', message_request: '✉️' };
+      document.getElementById('notif-list').innerHTML = notifications.length ? notifications.map(n => `
+        <div class="chat-item" style="${n.isNew ? 'background:rgba(62,166,255,0.07);' : ''}" onclick="openNotification('${esc(n.type)}','${esc(n.refId || '')}')">
+          <div class="ci-name">${icons[n.type] || '🔔'} ${esc(n.text)}</div>
+          <div class="ci-last">${timeAgo(n.createdAt)}</div>
+        </div>`).join('') : '<div class="chat-empty" style="padding:30px;">No notifications yet</div>';
+    }
+  } catch { /* non-fatal */ }
+}
+
+function toggleNotifPanel() {
+  requireAuth(async () => {
+    const panel = document.getElementById('notif-panel');
+    const opening = panel.style.display === 'none';
+    panel.style.display = opening ? 'block' : 'none';
+    if (opening) {
+      await loadNotifications(true);
+      // mark read; badge clears after viewing
+      api('/notifications/read', { method: 'POST', authRequired: true })
+        .then(() => document.getElementById('notif-badge').style.display = 'none')
+        .catch(() => {});
+    }
+  });
+}
+
+function openNotification(type, refId) {
+  document.getElementById('notif-panel').style.display = 'none';
+  if (type === 'comment' || type === 'tip') { if (refId) openVideo(refId); }
+  else if (type === 'message_request') { if (refId) openDM(refId); else showPage('messages'); }
+  else if (type === 'subscriber') { showPage('channel'); }
 }
 
 // ─── Legal pages ────────────────────────────────────────────────
