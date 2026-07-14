@@ -64,7 +64,7 @@ const writeLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: 
 const CF_BASE = `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/stream`;
 const cfHeaders = { Authorization: `Bearer ${process.env.CF_API_TOKEN}`, 'Content-Type': 'application/json' };
 
-async function getUploadUrl(maxDurationSeconds = 330, creatorId) {  // 5 min + 30s grace
+async function getUploadUrl(maxDurationSeconds = 630, creatorId) {  // 10 min + 30s grace
   const res = await axios.post(`${CF_BASE}/direct_upload`, {
     maxDurationSeconds,
     requireSignedURLs: false,
@@ -265,7 +265,7 @@ app.get('/users/search', authMiddleware, wrap(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 app.post('/videos/upload-url', authMiddleware, writeLimiter, wrap(async (req, res) => {
-  const result = await getUploadUrl(330, req.user.uid);
+  const result = await getUploadUrl(630, req.user.uid);
   await db.collection('videos').doc(result.uid).set({
     cloudflareUid: result.uid,
     uploaderId: req.user.uid,
@@ -298,11 +298,11 @@ app.post('/videos/:uid/publish', authMiddleware, writeLimiter, wrap(async (req, 
   const userDoc = await db.collection('users').doc(req.user.uid).get();
   const cfVideo = await getCFVideo(uid);
 
-  // Enforce 5-minute maximum (Cloudflare also enforces via maxDurationSeconds)
-  if (cfVideo.duration && cfVideo.duration > 305) {
+  // Enforce 10-minute maximum (Cloudflare also enforces via maxDurationSeconds)
+  if (cfVideo.duration && cfVideo.duration > 605) {
     await deleteCFVideo(uid).catch(() => {});
     await videoRef.delete().catch(() => {});
-    return res.status(400).json({ error: 'Videos must be 5 minutes or shorter. This upload was removed.' });
+    return res.status(400).json({ error: 'Videos must be 10 minutes or shorter. This upload was removed.' });
   }
 
   let customThumb = null;

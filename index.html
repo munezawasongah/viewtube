@@ -612,7 +612,7 @@
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3ea6ff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <h2>Drag &amp; drop your video</h2>
-          <p>MP4, MOV, AVI, MKV · Max 5 minutes · Up to 200MB</p>
+          <p>MP4, MOV, AVI, MKV · Max 10 minutes · Up to 200MB</p>
           <button class="btn btn-primary" onclick="event.stopPropagation(); document.getElementById('file-input').click()">Select File</button>
         </div>
         <input type="file" id="file-input" accept="video/*" style="display:none" onchange="fileSelected(this)" />
@@ -624,7 +624,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
           <span class="live-state" id="rec-state"><span class="status-pill status-draft">Ready to record</span></span>
-          <span id="rec-timer" style="font-family:monospace;font-size:15px;color:var(--muted);">0:00 / 5:00</span>
+          <span id="rec-timer" style="font-family:monospace;font-size:15px;color:var(--muted);">0:00 / 10:00</span>
           <button class="btn btn-ghost" id="rec-flip-btn" onclick="flipRecorder()">🔄 Flip Camera</button>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -634,7 +634,7 @@
           <button class="btn btn-ghost" id="rec-retry-btn" style="display:none;" onclick="retryRecording()">↺ Record Again</button>
           <button class="btn btn-ghost" onclick="closeRecorder()">Cancel</button>
         </div>
-        <p style="color:var(--muted);font-size:13px;margin-top:12px;">Records straight from your camera at an efficient size — a full 5-minute clip is roughly 100–150MB. Auto-stops at the 5-minute limit.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px;">Records straight from your camera at an efficient size — a 10-minute clip is roughly 200–300MB. Auto-stops at the 10-minute limit.</p>
       </div>
       <div id="upload-step-2" style="display:none;">
         <div class="upload-progress" id="upload-progress" style="display:block;">
@@ -889,7 +889,7 @@
         <p><strong>You keep ownership</strong> of every video, stream, comment and message you create. By uploading, you grant ViewTube a worldwide, non-exclusive, royalty-free licence to host, store, transcode, reproduce, distribute, publicly perform and display that content for the purpose of operating and promoting the Platform, including making it available for viewer downloads where that feature is enabled. This licence ends when you delete the content, except for copies already downloaded by other users and residual backup copies removed in the ordinary course.</p>
         <p>You warrant that you own or have all necessary rights to everything you upload, including music, footage and images within your videos.</p>
         <h2>3. Rules of use</h2>
-        <p>You must not upload or stream content that is unlawful under Kenyan law; infringes copyright or other rights; sexualizes or endangers minors in any way; promotes violence, terrorism or hatred against protected groups; harasses or threatens others; is fraudulent or deliberately deceptive in a way likely to cause harm; or contains malware. You must not manipulate views, likes or reactions, scrape the Platform, resell access, or interfere with its operation. Videos are limited to 5 minutes.</p>
+        <p>You must not upload or stream content that is unlawful under Kenyan law; infringes copyright or other rights; sexualizes or endangers minors in any way; promotes violence, terrorism or hatred against protected groups; harasses or threatens others; is fraudulent or deliberately deceptive in a way likely to cause harm; or contains malware. You must not manipulate views, likes or reactions, scrape the Platform, resell access, or interfere with its operation. Videos are limited to 10 minutes.</p>
         <h2>4. Payments and monetization</h2>
         <p>Tips are voluntary payments from viewers to creators, processed via M-Pesa. ViewTube may deduct a platform fee and transaction costs from amounts payable to creators; the applicable fee will be displayed before or within the Studio. Payouts require a valid Kenyan M-Pesa number. Tips are non-refundable except where required by law or where a payment was demonstrably fraudulent. You are responsible for your own taxes on amounts you earn.</p>
         <h2>5. Enforcement and termination</h2>
@@ -1661,7 +1661,7 @@ async function startUpload(file) {
   if (!currentUser) { requireAuth(() => {}); return; }
   if (!file.type.startsWith('video/')) return showToast('Please choose a video file', true);
   if (file.size > 200 * 1024 * 1024) return showToast('File exceeds the 200MB direct-upload limit', true);
-  // 5-minute cap — check duration locally before wasting bandwidth
+  // 10-minute cap — check duration locally before wasting bandwidth
   const duration = await new Promise(resolve => {
     const probe = document.createElement('video');
     probe.preload = 'metadata';
@@ -1669,7 +1669,7 @@ async function startUpload(file) {
     probe.onerror = () => { URL.revokeObjectURL(probe.src); resolve(null); };
     probe.src = URL.createObjectURL(file);
   });
-  if (duration && duration > 302) return showToast(`Videos must be 5 minutes or shorter (yours is ${Math.floor(duration/60)}:${String(Math.round(duration%60)).padStart(2,'0')})`, true);
+  if (duration && duration > 602) return showToast(`Videos must be 10 minutes or shorter (yours is ${Math.floor(duration/60)}:${String(Math.round(duration%60)).padStart(2,'0')})`, true);
 
   document.getElementById('upload-step-1').style.display = 'none';
   document.getElementById('upload-step-2').style.display = 'block';
@@ -2321,7 +2321,7 @@ function renderContinueRow() {
 // ─── In-app recorder (efficient camera capture, no compression wait) ──
 let recStream = null, recRecorder = null, recChunks = [], recBlob = null;
 let recFacing = 'user', recTimer = null, recSeconds = 0;
-const REC_MAX_SECONDS = 300; // matches the platform's 5-minute cap
+const REC_MAX_SECONDS = 600; // matches the platform's 10-minute cap
 
 async function openRecorder() {
   document.getElementById('drop-zone').style.display = 'none';
@@ -2381,8 +2381,8 @@ function startRecording() {
   recTimer = setInterval(() => {
     recSeconds++;
     const m = Math.floor(recSeconds/60), s = String(recSeconds%60).padStart(2,'0');
-    document.getElementById('rec-timer').textContent = `${m}:${s} / 5:00`;
-    if (recSeconds >= REC_MAX_SECONDS) { showToast('5-minute limit reached — recording stopped'); stopRecording(); }
+    document.getElementById('rec-timer').textContent = `${m}:${s} / 10:00`;
+    if (recSeconds >= REC_MAX_SECONDS) { showToast('10-minute limit reached — recording stopped'); stopRecording(); }
   }, 1000);
 }
 
@@ -2396,7 +2396,7 @@ function stopRecording() {
 
 function retryRecording() {
   recBlob = null;
-  document.getElementById('rec-timer').textContent = '0:00 / 5:00';
+  document.getElementById('rec-timer').textContent = '0:00 / 10:00';
   document.getElementById('rec-state').innerHTML = '<span class="status-pill status-draft">Ready to record</span>';
   document.getElementById('rec-use-btn').style.display = 'none';
   document.getElementById('rec-retry-btn').style.display = 'none';
