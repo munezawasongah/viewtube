@@ -1645,7 +1645,21 @@ document.addEventListener('click', e => {
 });
 
 // ─── Navigation ─────────────────────────────────────────────────
-function showPage(name) {
+// showPage() = navigate (pushes browser history). renderPage() = just render.
+// This keeps the Android/browser back button walking our navigation stack instead
+// of exiting the app on the first press.
+function showPage(name, opts = {}) {
+  // If an overlay is open, "navigating" should close it rather than change page
+  renderPage(name);
+  if (!opts.fromPop) {
+    const state = { page: name, videoId: name === 'player' ? currentVideo?.id : undefined };
+    // Replace instead of push when re-selecting the same page (avoids stacking dupes)
+    if (history.state?.page === name && name !== 'player') history.replaceState(state, '', location.pathname + location.search);
+    else history.pushState(state, '', location.pathname + location.search);
+  }
+}
+
+function renderPage(name) {
   closeSidebar();
   closeMenuSheet();
   closeNotifSheet();
@@ -1767,9 +1781,9 @@ function stopPlayback() {
   streamPlayer = null; viewTracked = false;
 }
 
-async function openVideo(id) {
+async function openVideo(id, opts = {}) {
   audioMode = false; hideMiniPlayer();
-  showPage('player');
+  showPage('player', opts);
   const wrap = document.getElementById('player-wrap');
   wrap.innerHTML = '<div class="skeleton" style="width:100%;height:100%;border-radius:0;"></div>';
   document.getElementById('player-title').textContent = 'Loading…';
@@ -3229,8 +3243,49 @@ function toggleTheme() {
   applyTheme(next);
 }
 
+// ─── Browser / Android back button ──────────────────────────────
+function anyOverlayOpen() {
+  return document.getElementById('lightbox')?.classList.contains('open')
+      || document.getElementById('menu-sheet')?.classList.contains('open')
+      || document.getElementById('notif-sheet')?.classList.contains('open')
+      || document.getElementById('acct-sheet')?.classList.contains('open')
+      || document.getElementById('sidebar')?.classList.contains('open')
+      || [...document.querySelectorAll('.modal-overlay')].some(m => m.classList.contains('open'));
+}
+
+function closeTopOverlay() {
+  if (document.getElementById('lightbox')?.classList.contains('open')) return closeLightbox();
+  if (document.getElementById('menu-sheet')?.classList.contains('open')) return closeMenuSheet();
+  if (document.getElementById('notif-sheet')?.classList.contains('open')) return closeNotifSheet();
+  if (document.getElementById('acct-sheet')?.classList.contains('open')) return closeAccountSheet();
+  if (document.getElementById('sidebar')?.classList.contains('open')) return closeSidebar();
+  const openModalEl = [...document.querySelectorAll('.modal-overlay')].find(m => m.classList.contains('open'));
+  if (openModalEl) return closeModal(openModalEl.id);
+}
+
+window.addEventListener('popstate', (e) => {
+  // 1) An overlay is open → back closes it, and we restore the history entry
+  if (anyOverlayOpen()) {
+    closeTopOverlay();
+    history.pushState(history.state || { page: 'home' }, '', location.pathname + location.search);
+    return;
+  }
+  // 2) On mobile, an open chat thread → back returns to the conversation list
+  if (document.body.classList.contains('chat-open') && window.matchMedia('(max-width: 900px)').matches) {
+    closeChatThread();
+    history.pushState({ page: 'messages' }, '', location.pathname + location.search);
+    return;
+  }
+  // 3) Otherwise walk our navigation stack
+  const st = e.state;
+  if (st?.page === 'player' && st.videoId) { openVideo(st.videoId, { fromPop: true }); return; }
+  renderPage(st?.page || 'home');
+  syncBottomNav(st?.page || 'home');
+});
+
 // ─── Init ───────────────────────────────────────────────────────
 (function init() {
+  history.replaceState({ page: 'home' }, '', location.pathname + location.search);
   try { applyTheme(localStorage.getItem('vt_theme') || 'dark'); } catch {}
   if (API_BASE_URL.includes('YOUR-API') || FIREBASE_CONFIG.apiKey.includes('YOUR_')) {
     document.getElementById('home-error').innerHTML =
