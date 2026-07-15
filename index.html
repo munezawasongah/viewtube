@@ -42,7 +42,7 @@
     /* Logo and actions take only what they need; search takes the centre. */
     nav > .nav-logo { flex: 0 0 auto; }
     nav > .nav-right { flex: 0 0 auto; margin-left: 0; }
-    .nav-logo { font-family: var(--font-head); font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+    .nav-logo { font-family: var(--font-head); font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 0; margin-right: 8px; }
     .nav-logo span { color: #f0b90b; }
     /* Centred: auto margins push it to the middle regardless of what flanks it. */
     .nav-search {
@@ -639,8 +639,7 @@
 
 <nav>
   <a class="nav-logo" href="#" onclick="event.preventDefault(); showPage('home')">
-    <span>View</span>Tube
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>
+    <span>View</span><svg width="30" height="30" viewBox="0 0 24 24" fill="none" style="margin:0 2px;"><rect width="24" height="24" rx="6" fill="#f0b90b"/><path d="M9 8l8 4-8 4V8z" fill="#000"/></svg>Tube
   </a>
   <div class="nav-search" id="nav-search">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
