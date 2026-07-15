@@ -1670,9 +1670,9 @@ auth.onAuthStateChanged(async user => {
     refreshMsgBadge();
     checkAdmin();
     if (notifPoll) clearInterval(notifPoll);
-    notifPoll = setInterval(() => loadNotifications(false), 60000);
+    notifPoll = setInterval(() => { if (!document.hidden) loadNotifications(false); }, 120000);
     if (msgPoll) clearInterval(msgPoll);
-    msgPoll = setInterval(refreshMsgBadge, 20000);
+    msgPoll = setInterval(() => { if (!document.hidden) refreshMsgBadge(); }, 60000);
     if (pendingAction) { const fn = pendingAction; pendingAction = null; fn(); }
   } else {
     myProfile = null;
@@ -2463,7 +2463,7 @@ async function openDM(otherUid) {
   loadConversations();
   refreshMsgBadge();
   if (chatPoll) clearInterval(chatPoll);
-  chatPoll = setInterval(() => { refreshThread(false); refreshMsgBadge(); }, 4000);
+  chatPoll = setInterval(() => { if (!document.hidden) { refreshThread(false); refreshMsgBadge(); } }, 8000);
 }
 
 async function refreshThread(scroll) {
@@ -2543,7 +2543,7 @@ async function startLive(mode) {
       document.getElementById('live-key').firstChild.textContent = 'End this stream and create a new one to get fresh credentials';
     }
     if (livePoll) clearInterval(livePoll);
-    livePoll = setInterval(pollLiveStatus, 5000);
+    livePoll = setInterval(() => { if (!document.hidden) pollLiveStatus(); }, 10000);
   } catch (e) { showToast(e.message, true); }
   finally { btn.disabled = false; if (btn.id === 'golive-btn') btn.textContent = '🎛 Use OBS / RTMP'; }
 }
@@ -3514,7 +3514,7 @@ if (startPage !== 'home') {
       loadPageData(deepPage);
     }
   }
-  setInterval(loadLiveRow, 60000);
+  setInterval(() => { if (!document.hidden) loadLiveRow(); }, 180000);
   // Deep link: ?v=VIDEO_ID
   const vid = new URLSearchParams(location.search).get('v');
   if (vid) openVideo(vid);

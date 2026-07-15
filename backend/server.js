@@ -925,9 +925,10 @@ app.get('/notifications', authMiddleware, wrap(async (req, res) => {
 }));
 
 app.get('/messages/unread-count', authMiddleware, wrap(async (req, res) => {
-  const snap = await db.collection('conversations').where('participants', 'array-contains', req.user.uid).get();
-  const total = snap.docs.reduce((s, d) => s + (d.data().unread?.[req.user.uid] || 0), 0);
-  res.json({ unread: total });
+  // Read a single maintained counter instead of scanning every conversation.
+  // Cuts this from N reads to 1 read per poll.
+  const doc = await db.collection('users').doc(req.user.uid).get();
+  res.json({ unread: doc.data()?.unreadMessages || 0 });
 }));
 
 app.post('/notifications/read', authMiddleware, wrap(async (req, res) => {
@@ -972,9 +973,14 @@ app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
   ]);
   const convo = convoDoc.exists ? convoDoc.data() : null;
   // Reading the thread marks it read for this user
-  if (convo && (convo.unread?.[req.user.uid] || 0) > 0) {
-    // update() resolves dotted paths — correct here (unlike set(), see POST /messages)
+  const clearedCount = convo?.unread?.[req.user.uid] || 0;
+  if (clearedCount > 0) {
     db.collection('conversations').doc(id).update({ [`unread.${req.user.uid}`]: 0 }).catch(() => {});
+    // Decrement the running total by exactly what this thread held
+    db.collection('users').doc(req.user.uid).set(
+      { unreadMessages: admin.firestore.FieldValue.increment(-clearedCount) },
+      { merge: true }
+    ).catch(() => {});
   }
   const fixImg = u => (!u ? null : (/^https?:\/\//i.test(u) ? u : `${apiBase(req)}${u.startsWith('/') ? '' : '/'}${u}`));
   res.json({
@@ -1038,6 +1044,11 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
   };
 
   await convoRef.set(update, { merge: true });
+  // Maintain the recipient's running unread total (read cheaply by unread-count)
+  db.collection('users').doc(otherUid).set(
+    { unreadMessages: admin.firestore.FieldValue.increment(1) },
+    { merge: true }
+  ).catch(() => {});
   const ref = await db.collection('messages').add({
     conversationId: id,
     senderId: req.user.uid,
