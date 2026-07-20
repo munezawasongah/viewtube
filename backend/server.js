@@ -626,6 +626,116 @@ app.post('/comments/:id/like', authMiddleware, writeLimiter, wrap(async (req, re
 // ═══════════════════════════════════════════════════════════════
 // CHANNELS / USERS
 // ═══════════════════════════════════════════════════════════════
+// ─── Community posts ────────────────────────────────────────────
+const POST_NOTIFY_CAP = 300;   // don't fan out beyond this many subscribers
+
+// Create a post (text and/or image)
+app.post('/posts', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const text = sanitizeText(req.body.text, 2000);
+  let imageUrl = null;
+  if (req.body.imageId) {
+    imageUrl = await verifyOwnImage(req.body.imageId, req.user.uid, req);
+    if (!imageUrl) return res.status(400).json({ error: 'Invalid image' });
+  }
+  if (!text && !imageUrl) return res.status(400).json({ error: 'Post cannot be empty' });
+
+  const me = await db.collection('users').doc(req.user.uid).get();
+  const profile = me.data() || {};
+
+  const ref = await db.collection('posts').add({
+    authorId: req.user.uid,
+    authorName: profile.displayName || 'Creator',
+    authorPhoto: profile.photoURL || null,
+    authorUsername: profile.username || null,
+    text,
+    imageUrl,
+    likeCount: 0,
+    commentCount: 0,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Notify subscribers (capped). Fire-and-forget so the post returns fast.
+  db.collection('subscriptions').where('channelId', '==', req.user.uid).limit(POST_NOTIFY_CAP).get()
+    .then(snap => {
+      const preview = text ? text.slice(0, 80) : 'shared a photo';
+      snap.docs.forEach(d => {
+        const sub = d.data().subscriberId;
+        if (sub && sub !== req.user.uid) {
+          notify(sub, 'post', `${profile.displayName || 'A creator'} posted: ${preview}`, ref.id);
+        }
+      });
+    })
+    .catch(() => {});
+
+  res.json({ id: ref.id });
+}));
+
+// Posts by one channel
+app.get('/channels/:uid/posts', optionalAuth, wrap(async (req, res) => {
+  const snap = await db.collection('posts')
+    .where('authorId', '==', req.params.uid)
+    .orderBy('createdAt', 'desc')
+    .limit(30).get();
+  const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  res.json({ posts: await attachLiked(posts, req) });
+}));
+
+// Combined feed of posts from channels the viewer subscribes to
+app.get('/posts/feed', authMiddleware, wrap(async (req, res) => {
+  const subSnap = await db.collection('subscriptions').where('subscriberId', '==', req.user.uid).limit(50).get();
+  const channelIds = subSnap.docs.map(d => d.data().channelId).filter(Boolean);
+  if (!channelIds.length) return res.json({ posts: [] });
+
+  // Firestore 'in' takes at most 30 values
+  const batches = [];
+  for (let i = 0; i < channelIds.length; i += 30) batches.push(channelIds.slice(i, i + 30));
+  const snaps = await Promise.all(batches.map(ids =>
+    db.collection('posts').where('authorId', 'in', ids).orderBy('createdAt', 'desc').limit(30).get()
+  ));
+  let posts = snaps.flatMap(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
+  posts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  posts = posts.slice(0, 30);
+  res.json({ posts: await attachLiked(posts, req) });
+}));
+
+// Mark which posts the viewer has liked (single batched read, not one per post)
+async function attachLiked(posts, req) {
+  if (!req.user || !posts.length) return posts.map(p => ({ ...p, liked: false }));
+  const refs = posts.map(p => db.collection('post_likes').doc(`${req.user.uid}_${p.id}`));
+  const docs = await db.getAll(...refs).catch(() => []);
+  const likedIds = new Set(docs.filter(d => d.exists).map(d => d.id.split('_').slice(1).join('_')));
+  return posts.map(p => ({ ...p, liked: likedIds.has(p.id) }));
+}
+
+// Like / unlike a post
+app.post('/posts/:id/like', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const postRef = db.collection('posts').doc(req.params.id);
+  const likeRef = db.collection('post_likes').doc(`${req.user.uid}_${req.params.id}`);
+  const liked = await db.runTransaction(async t => {
+    const [post, like] = await Promise.all([t.get(postRef), t.get(likeRef)]);
+    if (!post.exists) throw Object.assign(new Error('Post not found'), { status: 404 });
+    if (like.exists) {
+      t.delete(likeRef);
+      t.update(postRef, { likeCount: admin.firestore.FieldValue.increment(-1) });
+      return false;
+    }
+    t.set(likeRef, { userId: req.user.uid, postId: req.params.id, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    t.update(postRef, { likeCount: admin.firestore.FieldValue.increment(1) });
+    return true;
+  });
+  res.json({ liked });
+}));
+
+// Delete own post
+app.delete('/posts/:id', authMiddleware, wrap(async (req, res) => {
+  const ref = db.collection('posts').doc(req.params.id);
+  const doc = await ref.get();
+  if (!doc.exists) return res.status(404).json({ error: 'Post not found' });
+  if (doc.data().authorId !== req.user.uid) return res.status(403).json({ error: 'Not your post' });
+  await ref.delete();
+  res.json({ ok: true });
+}));
+
 app.get('/channels/:uid', wrap(async (req, res) => {
   const doc = await db.collection('users').doc(req.params.uid).get();
   if (!doc.exists) return res.status(404).json({ error: 'Channel not found' });

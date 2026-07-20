@@ -995,10 +995,42 @@
       <button class="btn btn-ghost" id="edit-profile-btn" style="display:none;" onclick="openModal('profile-modal')">Edit Profile</button>
       <button class="btn-subscribe" id="channel-subscribe-btn" style="display:none;" onclick="toggleChannelSubscribe()">Subscribe</button>
     </div>
-    <div class="video-grid" id="channel-grid"></div>
-    <div id="channel-empty" style="display:none;" class="empty-state">
-      <h3>No videos yet</h3>
-      <p>Videos published on this channel will appear here.</p>
+    <div class="ch-tabs">
+      <button class="ch-tab active" id="ch-tab-videos" onclick="switchChannelTab('videos')">Videos</button>
+      <button class="ch-tab" id="ch-tab-community" onclick="switchChannelTab('community')">Community</button>
+    </div>
+
+    <div id="channel-videos-pane">
+      <div class="video-grid" id="channel-grid"></div>
+      <div id="channel-empty" style="display:none;" class="empty-state">
+        <h3>No videos yet</h3>
+        <p>Videos published on this channel will appear here.</p>
+      </div>
+    </div>
+
+    <div id="channel-community-pane" style="display:none;">
+      <div class="post-composer" id="post-composer" style="display:none;">
+        <textarea id="post-text" placeholder="Share an update with your subscribers..." maxlength="2000" rows="3"></textarea>
+        <div id="post-img-preview" style="display:none; margin-top:10px;">
+          <div style="position:relative; display:inline-block;">
+            <img id="post-img-thumb" style="max-height:140px; border-radius:8px; border:1px solid var(--border); display:block;" />
+            <button onclick="clearPostImage()" title="Remove" style="position:absolute; top:-8px; right:-8px; background:var(--accent2); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:12px; line-height:1;">✕</button>
+          </div>
+        </div>
+        <div class="post-composer-actions">
+          <button class="btn btn-ghost" onclick="document.getElementById('post-img-file').click()" title="Add a photo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </button>
+          <input type="file" id="post-img-file" accept="image/*" style="display:none" onchange="pickPostImage(this)" />
+          <span style="flex:1"></span>
+          <button class="btn btn-primary" onclick="submitPost()">Post</button>
+        </div>
+      </div>
+      <div id="channel-posts"></div>
+      <div id="posts-empty" style="display:none;" class="empty-state">
+        <h3>No posts yet</h3>
+        <p>Updates from this channel will appear here.</p>
+      </div>
     </div>
   </section>
 
@@ -2251,6 +2283,8 @@ let viewingChannelId = null;
 function loadChannelPage(uid) { showPage('channel'); loadChannel(uid); }
 
 async function loadChannel(uid) {
+  viewingChannelUid = uid || currentUser?.uid || null;
+  switchChannelTab('videos');
   if (!uid) { requireAuth(() => loadChannel(currentUser.uid)); return; }
   viewingChannelId = uid;
   const isMine = currentUser && uid === currentUser.uid;
@@ -3391,6 +3425,138 @@ document.addEventListener('click', e => {
   if (wrap && !wrap.contains(e.target)) collapseSearch();
 });
 
+// ─── Community posts ────────────────────────────────────────────
+let channelTab = 'videos';
+let viewingChannelUid = null;
+let pendingPostImage = null;
+
+function switchChannelTab(tab) {
+  channelTab = tab;
+  document.getElementById('ch-tab-videos').classList.toggle('active', tab === 'videos');
+  document.getElementById('ch-tab-community').classList.toggle('active', tab === 'community');
+  document.getElementById('channel-videos-pane').style.display = tab === 'videos' ? '' : 'none';
+  document.getElementById('channel-community-pane').style.display = tab === 'community' ? '' : 'none';
+  if (tab === 'community') loadChannelPosts(viewingChannelUid);
+}
+
+async function loadChannelPosts(uid) {
+  if (!uid) return;
+  const box = document.getElementById('channel-posts');
+  const empty = document.getElementById('posts-empty');
+  // Only the channel owner sees the composer
+  document.getElementById('post-composer').style.display = (currentUser && currentUser.uid === uid) ? '' : 'none';
+  box.innerHTML = '<div class="post-loading">Loading posts…</div>';
+  try {
+    const { posts } = await api('/channels/' + encodeURIComponent(uid) + '/posts');
+    box.innerHTML = posts.map(renderPost).join('');
+    empty.style.display = posts.length ? 'none' : '';
+  } catch (e) {
+    box.innerHTML = '';
+    empty.style.display = '';
+    showToast(e.message, true);
+  }
+}
+
+function renderPost(p) {
+  const mine = currentUser && currentUser.uid === p.authorId;
+  return `
+    <div class="post" id="post-${esc(p.id)}">
+      <div class="post-head">
+        <div class="post-avatar" onclick="loadChannelPage('${esc(p.authorId)}')">${avatarHTML(p.authorPhoto, p.authorName)}</div>
+        <div style="min-width:0;">
+          <div class="post-author" onclick="loadChannelPage('${esc(p.authorId)}')">${esc(p.authorName)}</div>
+          <div class="post-time">${timeAgo(p.createdAt)}</div>
+        </div>
+        ${mine ? `<button class="post-btn post-menu-btn" onclick="deletePost('${esc(p.id)}')" title="Delete post">🗑</button>` : ''}
+      </div>
+      ${p.text ? `<div class="post-body">${linkify(esc(p.text))}</div>` : ''}
+      ${p.imageUrl ? `<img class="post-image" src="${esc(p.imageUrl)}" loading="lazy" onclick="openLightbox(this.src)" alt="" />` : ''}
+      <div class="post-actions">
+        <button class="post-btn ${p.liked ? 'liked' : ''}" id="plike-${esc(p.id)}" onclick="togglePostLike('${esc(p.id)}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="${p.liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          <span id="plikec-${esc(p.id)}">${p.likeCount || 0}</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+// Turn bare URLs into links (posts are the one place users paste them)
+function linkify(text) {
+  return text.replace(/(https?:\/\/[^\s<]+)/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${u}</a>`);
+}
+
+async function pickPostImage(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) return showToast('Please choose an image', true);
+  try {
+    showToast('Optimizing photo…');
+    let blob = await compressImage(file, 1280, 0.82);
+    if (blob.size > 400 * 1024) blob = await compressImage(file, 1000, 0.7);
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = () => rej(new Error('Read failed'));
+      r.readAsDataURL(blob);
+    });
+    const { id, url } = await api('/images', { method: 'POST', authRequired: true, body: { data: base64, mime: 'image/jpeg' } });
+    pendingPostImage = id;
+    document.getElementById('post-img-thumb').src = url;
+    document.getElementById('post-img-preview').style.display = 'block';
+  } catch (e) { showToast(e.message, true); }
+}
+
+function clearPostImage() {
+  pendingPostImage = null;
+  const p = document.getElementById('post-img-preview');
+  const t = document.getElementById('post-img-thumb');
+  if (p) p.style.display = 'none';
+  if (t) t.src = '';
+}
+
+async function submitPost() {
+  const ta = document.getElementById('post-text');
+  const text = ta.value.trim();
+  if (!text && !pendingPostImage) return showToast('Write something or add a photo', true);
+  const imageId = pendingPostImage;
+  try {
+    await api('/posts', { method: 'POST', authRequired: true, body: { text, ...(imageId ? { imageId } : {}) } });
+    ta.value = '';
+    clearPostImage();
+    showToast('Posted — your subscribers will be notified');
+    loadChannelPosts(viewingChannelUid);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function togglePostLike(id) {
+  if (!currentUser) return openModal('auth-modal');
+  const btn = document.getElementById('plike-' + id);
+  const countEl = document.getElementById('plikec-' + id);
+  const wasLiked = btn.classList.contains('liked');
+  // Optimistic update — reverted if the request fails
+  btn.classList.toggle('liked', !wasLiked);
+  countEl.textContent = Math.max(0, (parseInt(countEl.textContent, 10) || 0) + (wasLiked ? -1 : 1));
+  btn.querySelector('svg').setAttribute('fill', !wasLiked ? 'currentColor' : 'none');
+  try {
+    await api('/posts/' + encodeURIComponent(id) + '/like', { method: 'POST', authRequired: true });
+  } catch (e) {
+    btn.classList.toggle('liked', wasLiked);
+    countEl.textContent = Math.max(0, (parseInt(countEl.textContent, 10) || 0) + (wasLiked ? 1 : -1));
+    btn.querySelector('svg').setAttribute('fill', wasLiked ? 'currentColor' : 'none');
+    showToast(e.message, true);
+  }
+}
+
+async function deletePost(id) {
+  if (!confirm('Delete this post?')) return;
+  try {
+    await api('/posts/' + encodeURIComponent(id), { method: 'DELETE', authRequired: true });
+    document.getElementById('post-' + id)?.remove();
+    showToast('Post deleted');
+  } catch (e) { showToast(e.message, true); }
+}
+
 // ─── Legal pages ────────────────────────────────────────────────
 function showLegal(section) {
   showPage('legal');
@@ -3529,11 +3695,8 @@ if (startPage !== 'home') {
 })();
 </script>
 <script>
-  // PWA: register the service worker (network-first, so no stale-version trap)
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-    });
+    window.addEventListener('load', () => { navigator.serviceWorker.register('/service-worker.js').catch(() => {}); });
   }
 </script>
 </body>
