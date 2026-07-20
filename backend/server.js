@@ -672,11 +672,15 @@ app.post('/posts', authMiddleware, writeLimiter, wrap(async (req, res) => {
 
 // Posts by one channel
 app.get('/channels/:uid/posts', optionalAuth, wrap(async (req, res) => {
+  // No orderBy() here on purpose: combining where() + orderBy() would require a
+  // composite index. Sorting in memory keeps this working with zero index setup.
   const snap = await db.collection('posts')
     .where('authorId', '==', req.params.uid)
-    .orderBy('createdAt', 'desc')
-    .limit(30).get();
-  const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    .limit(60).get();
+  const posts = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?._seconds || b.createdAt?.seconds || 0) - (a.createdAt?._seconds || a.createdAt?.seconds || 0))
+    .slice(0, 30);
   res.json({ posts: await attachLiked(posts, req) });
 }));
 
@@ -690,10 +694,11 @@ app.get('/posts/feed', authMiddleware, wrap(async (req, res) => {
   const batches = [];
   for (let i = 0; i < channelIds.length; i += 30) batches.push(channelIds.slice(i, i + 30));
   const snaps = await Promise.all(batches.map(ids =>
-    db.collection('posts').where('authorId', 'in', ids).orderBy('createdAt', 'desc').limit(30).get()
+    // No orderBy() — see the comment on /channels/:uid/posts. Sorted below in memory.
+    db.collection('posts').where('authorId', 'in', ids).limit(60).get()
   ));
   let posts = snaps.flatMap(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
-  posts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  posts.sort((a, b) => (b.createdAt?._seconds || b.createdAt?.seconds || 0) - (a.createdAt?._seconds || a.createdAt?.seconds || 0));
   posts = posts.slice(0, 30);
   res.json({ posts: await attachLiked(posts, req) });
 }));

@@ -708,6 +708,10 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Your Channel
     </a>
+    <a class="sidebar-item" id="nav-community" onclick="requireAuth(() => showPage('community'))">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Community
+    </a>
     <a class="sidebar-item" onclick="requireAuth(() => showPage('studio'))">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       Studio
@@ -983,6 +987,35 @@
   </section>
 
   <!-- CHANNEL -->
+  <section class="page" id="page-community">
+    <div class="section-title">Community</div>
+    <p style="color:var(--muted); font-size:13px; margin:-8px 0 18px;">Updates from you and the channels you subscribe to.</p>
+
+    <div class="post-composer">
+      <textarea id="cfeed-text" placeholder="Share an update with your subscribers..." maxlength="2000" rows="3"></textarea>
+      <div id="cfeed-img-preview" style="display:none; margin-top:10px;">
+        <div style="position:relative; display:inline-block;">
+          <img id="cfeed-img-thumb" style="max-height:140px; border-radius:8px; border:1px solid var(--border); display:block;" />
+          <button onclick="clearFeedImage()" title="Remove" style="position:absolute; top:-8px; right:-8px; background:var(--accent2); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:12px; line-height:1;">✕</button>
+        </div>
+      </div>
+      <div class="post-composer-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('cfeed-img-file').click()" title="Add a photo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </button>
+        <input type="file" id="cfeed-img-file" accept="image/*" style="display:none" onchange="pickFeedImage(this)" />
+        <span style="flex:1"></span>
+        <button class="btn btn-primary" onclick="submitFeedPost()">Post</button>
+      </div>
+    </div>
+
+    <div id="community-feed"></div>
+    <div id="community-empty" style="display:none;" class="empty-state">
+      <h3>Nothing here yet</h3>
+      <p>Posts from channels you subscribe to will appear here. Subscribe to a few creators, or share your own update above.</p>
+    </div>
+  </section>
+
   <section class="page" id="page-channel">
     <div class="channel-banner"></div>
     <div class="channel-header">
@@ -1834,6 +1867,7 @@ function renderPage(name) {
 // already-visible page without re-rendering it (which would cause a flash).
 function loadPageData(name) {
   if (name === 'messages') loadConversations();
+  if (name === 'community') loadCommunityFeed();
   if (name === 'home') renderContinueRow();
   if (name === 'advertise') loadAdEnquiries();
   if (name === 'trending') loadTrending();
@@ -3557,6 +3591,68 @@ async function deletePost(id) {
   } catch (e) { showToast(e.message, true); }
 }
 
+// ─── Community feed page ────────────────────────────────────────
+let pendingFeedImage = null;
+
+async function loadCommunityFeed() {
+  const box = document.getElementById('community-feed');
+  const empty = document.getElementById('community-empty');
+  box.innerHTML = '<div class="post-loading">Loading posts…</div>';
+  try {
+    const { posts } = await api('/posts/feed', { authRequired: true });
+    box.innerHTML = posts.map(renderPost).join('');
+    empty.style.display = posts.length ? 'none' : '';
+  } catch (e) {
+    box.innerHTML = '';
+    empty.style.display = '';
+    if (e.message && !/sign in/i.test(e.message)) showToast(e.message, true);
+  }
+}
+
+async function pickFeedImage(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) return showToast('Please choose an image', true);
+  try {
+    showToast('Optimizing photo…');
+    let blob = await compressImage(file, 1280, 0.82);
+    if (blob.size > 400 * 1024) blob = await compressImage(file, 1000, 0.7);
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = () => rej(new Error('Read failed'));
+      r.readAsDataURL(blob);
+    });
+    const { id, url } = await api('/images', { method: 'POST', authRequired: true, body: { data: base64, mime: 'image/jpeg' } });
+    pendingFeedImage = id;
+    document.getElementById('cfeed-img-thumb').src = url;
+    document.getElementById('cfeed-img-preview').style.display = 'block';
+  } catch (e) { showToast(e.message, true); }
+}
+
+function clearFeedImage() {
+  pendingFeedImage = null;
+  const p = document.getElementById('cfeed-img-preview');
+  const t = document.getElementById('cfeed-img-thumb');
+  if (p) p.style.display = 'none';
+  if (t) t.src = '';
+}
+
+async function submitFeedPost() {
+  const ta = document.getElementById('cfeed-text');
+  const text = ta.value.trim();
+  if (!text && !pendingFeedImage) return showToast('Write something or add a photo', true);
+  const imageId = pendingFeedImage;
+  try {
+    await api('/posts', { method: 'POST', authRequired: true, body: { text, ...(imageId ? { imageId } : {}) } });
+    ta.value = '';
+    clearFeedImage();
+    showToast('Posted — your subscribers will be notified');
+    loadCommunityFeed();
+  } catch (e) { showToast(e.message, true); }
+}
+
 // ─── Legal pages ────────────────────────────────────────────────
 function showLegal(section) {
   showPage('legal');
@@ -3674,7 +3770,7 @@ if (startPage !== 'home') {
   if (deepVideo) {
     openVideo(deepVideo, { fromPop: true });
   } else if (deepPage && document.getElementById('page-' + deepPage)) {
-    const gated = ['messages', 'studio', 'upload', 'golive', 'subscriptions', 'channel'];
+    const gated = ['messages', 'studio', 'upload', 'golive', 'subscriptions', 'channel', 'community'];
     if (gated.includes(deepPage)) {
       // Firebase fires onAuthStateChanged with null FIRST (while restoring the
       // persisted session), then again with the real user. Treating that first null
