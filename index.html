@@ -663,66 +663,97 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       MOBILE HOME — restyled for density and hierarchy.
-       Previously every card was full-width 16:9 with 20px gaps, so a
-       phone screen fitted only two videos and clipped a third.
-       Now: one featured card, then a compact 2-up grid.
+       MOBILE HOME — density + polish.
+       Target: ~8 videos reachable on first screen. Achieved by trimming
+       card chrome (not shrinking thumbnails, which are the main draw).
        ═══════════════════════════════════════════════════════════ */
     @media (max-width: 900px) {
-      /* Tighter category rail */
-      #page-home .categories { gap: 7px; margin-bottom: 16px; padding-bottom: 2px; }
-      #page-home .cat-pill { padding: 7px 14px; font-size: 12.5px; }
+      /* Category rail — compact, edge-to-edge scroll */
+      #page-home .categories { gap: 6px; margin-bottom: 14px; padding-bottom: 2px; }
+      #page-home .cat-pill { padding: 6px 13px; font-size: 12px; }
 
-      /* Two-up grid: six videos visible instead of two */
+      /* Two-up grid, tighter gaps so more fits per screen */
       #page-home .video-grid,
       #page-trending .video-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 14px 10px;
-        margin-bottom: 26px;
+        gap: 12px 9px;
+        margin-bottom: 22px;
       }
 
-      /* Compact card typography for the 2-up layout */
+      /* ── Card polish ──
+         Thumbnail gets a subtle frame + hover/press feedback so the grid
+         reads as deliberate rather than as bare images on a background. */
+      #page-home .video-card,
+      #page-trending .video-card { transition: transform .16s ease; }
+      #page-home .video-card:active,
+      #page-trending .video-card:active { transform: scale(0.975); }
+
       #page-home .video-thumb,
-      #page-trending .video-thumb { border-radius: 10px; }
+      #page-trending .video-thumb {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+      }
+
+      /* Duration chip: frosted, matches the player's visual language */
+      #page-home .video-duration,
+      #page-trending .video-duration {
+        font-size: 10.5px; font-weight: 600; padding: 2px 6px;
+        bottom: 6px; right: 6px; border-radius: 5px;
+        background: rgba(0,0,0,0.82); backdrop-filter: blur(4px);
+        letter-spacing: .02em;
+      }
+
+      /* Metadata: trimmed to claw back vertical space */
       #page-home .video-info,
-      #page-trending .video-info { padding: 8px 0 0; gap: 8px; }
+      #page-trending .video-info { padding: 7px 0 0; gap: 7px; }
       #page-home .video-avatar,
-      #page-trending .video-avatar { width: 26px; height: 26px; font-size: 11px; }
+      #page-trending .video-avatar { width: 24px; height: 24px; font-size: 10px; }
       #page-home .video-title,
-      #page-trending .video-title { font-size: 13px; line-height: 1.35; margin-bottom: 3px; -webkit-line-clamp: 2; }
+      #page-trending .video-title {
+        font-size: 12.5px; font-weight: 600; line-height: 1.3;
+        margin-bottom: 2px; -webkit-line-clamp: 2;
+      }
       #page-home .video-sub,
-      #page-trending .video-sub { font-size: 11px; line-height: 1.4; }
-      #page-home .video-duration { font-size: 11px; padding: 2px 5px; bottom: 6px; right: 6px; }
+      #page-trending .video-sub { font-size: 10.5px; line-height: 1.35; }
 
-      /* FEATURED: the first card on the home feed spans both columns */
-      #home-grid > .video-card:first-child { grid-column: 1 / -1; }
-      #home-grid > .video-card:first-child .video-thumb { border-radius: 12px; }
-      #home-grid > .video-card:first-child .video-title { font-size: 15px; -webkit-line-clamp: 2; }
-      #home-grid > .video-card:first-child .video-sub { font-size: 12px; }
-      #home-grid > .video-card:first-child .video-avatar { width: 32px; height: 32px; font-size: 12px; }
-      #home-grid > .video-card:first-child .video-info { padding-top: 10px; gap: 10px; }
+      /* Uniform 2-up: measured to fit 8 videos on a 412x915 screen.
+         A featured full-width tile costs a whole row at any aspect ratio,
+         so hierarchy comes from card craft instead of tile size. */
 
-      /* Section headings sit closer to their content */
-      #page-home .section-title { font-size: 16px; margin-bottom: 10px; }
+      /* Section headings: smaller, with a gold accent bar for rhythm */
+      #page-home .section-title {
+        font-size: 14px; margin-bottom: 9px;
+        display: flex; align-items: center; gap: 8px;
+      }
+      #page-home .section-title::before {
+        content: ''; width: 3px; height: 15px;
+        background: var(--accent); border-radius: 2px; flex-shrink: 0;
+      }
 
-      /* Continue Watching + Live stay as a horizontal rail — scrolling
-         sideways beats burning vertical space on a phone. */
+      /* Horizontal rails for Continue Watching + Live — sideways beats
+         burning a screen of vertical space on a phone. */
       #continue-grid, #live-grid {
         display: flex !important;
         overflow-x: auto;
-        gap: 10px;
-        padding-bottom: 6px;
-        margin-bottom: 22px;
+        gap: 9px;
+        padding-bottom: 4px;
+        margin-bottom: 18px;
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
       }
       #continue-grid::-webkit-scrollbar, #live-grid::-webkit-scrollbar { display: none; }
       #continue-grid > .video-card, #live-grid > .video-card {
-        flex: 0 0 63%;
+        flex: 0 0 58%;
         scroll-snap-align: start;
       }
 
-      /* Skeletons match the 2-up shape so loading doesn't jump */
+      /* Hero: trimmed so it doesn't push the feed off-screen for new users */
+      #page-home .hero { padding: 22px 18px; margin-bottom: 16px; }
+      #page-home .hero h1 { font-size: 22px; line-height: 1.25; }
+      #page-home .hero p { font-size: 13px; margin: 8px 0 14px; }
+
+      /* Skeletons match the real card shape so loading doesn't jump */
       #page-home .skeleton-card { height: auto; aspect-ratio: 16/9; border-radius: 10px; }
     }
 
