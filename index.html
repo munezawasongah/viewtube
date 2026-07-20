@@ -1723,6 +1723,8 @@
 
   <div class="ms-label">Browse</div>
   <a onclick="menuGo(() => showPage('trending'))">🔥 Trending</a>
+  <a onclick="menuGo(() => showPage('news'))">📰 News</a>
+  <a onclick="menuGo(() => requireAuth(() => showPage('community')))">💬 Community</a>
   <hr>
 
   <div class="ms-label">Create</div>
