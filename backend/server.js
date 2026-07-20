@@ -626,6 +626,128 @@ app.post('/comments/:id/like', authMiddleware, writeLimiter, wrap(async (req, re
 // ═══════════════════════════════════════════════════════════════
 // CHANNELS / USERS
 // ═══════════════════════════════════════════════════════════════
+// ─── News feed (RSS, cached) ────────────────────────────────────
+// Sources are public RSS feeds. We store headline + snippet + link only and always
+// link back to the publisher — never full article text.
+const NEWS_SOURCES = [
+  { name: 'Nation',       region: 'Kenya',  url: 'https://nation.africa/kenya/rss' },
+  { name: 'The Star',     region: 'Kenya',  url: 'https://www.the-star.co.ke/rss' },
+  { name: 'Standard',     region: 'Kenya',  url: 'https://www.standardmedia.co.ke/rss/headlines.php' },
+  { name: 'Citizen',      region: 'Kenya',  url: 'https://citizen.digital/feed' },
+  { name: 'BBC Africa',   region: 'Africa', url: 'https://feeds.bbci.co.uk/news/world/africa/rss.xml' },
+  { name: 'Al Jazeera',   region: 'World',  url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { name: 'BBC World',    region: 'World',  url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+];
+
+const NEWS_TTL_MS = 2 * 60 * 60 * 1000;   // refresh every 2 hours
+const NEWS_DOC = 'cache/news';
+
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+}
+
+function stripTags(s) {
+  return decodeEntities(String(s).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+}
+
+// Pull a tag's contents, handling CDATA and attributes. RSS in the wild is messy.
+function pickTag(xml, tag) {
+  const m = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  if (!m) return '';
+  return String(m[1]).replace(/^\s*<!\[CDATA\[/, '').replace(/\]\]>\s*$/, '').trim();
+}
+
+function parseRss(xml, source) {
+  const blocks = xml.split(/<item[\s>]/i).slice(1);
+  const entries = blocks.length ? blocks : xml.split(/<entry[\s>]/i).slice(1);  // Atom fallback
+  return entries.slice(0, 12).map(raw => {
+    const chunk = raw.split(/<\/(?:item|entry)>/i)[0];
+    const title = stripTags(pickTag(chunk, 'title'));
+    let link = pickTag(chunk, 'link');
+    if (!link || /^\s*$/.test(link)) {
+      const href = chunk.match(/<link[^>]*href=["']([^"']+)["']/i);   // Atom style
+      link = href ? href[1] : '';
+    }
+    const desc = stripTags(pickTag(chunk, 'description') || pickTag(chunk, 'summary'));
+    const dateStr = pickTag(chunk, 'pubDate') || pickTag(chunk, 'published') || pickTag(chunk, 'updated');
+    const ts = dateStr ? Date.parse(dateStr) : NaN;
+    // Try to find an image (media:content, enclosure, or an <img> in the description)
+    let image = null;
+    const mc = chunk.match(/<media:(?:content|thumbnail)[^>]*url=["']([^"']+)["']/i);
+    const enc = chunk.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*type=["']image/i);
+    const img = chunk.match(/<img[^>]*src=["']([^"']+)["']/i);
+    if (mc) image = mc[1]; else if (enc) image = enc[1]; else if (img) image = img[1];
+
+    if (!title || !link) return null;
+    return {
+      title: title.slice(0, 200),
+      link: link.slice(0, 500),
+      snippet: desc.slice(0, 220),
+      image: image && /^https?:\/\//i.test(image) ? image : null,
+      source: source.name,
+      region: source.region,
+      publishedAt: Number.isFinite(ts) ? Math.floor(ts / 1000) : null,
+    };
+  }).filter(Boolean);
+}
+
+async function fetchOneFeed(source) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 9000);
+  try {
+    const res = await fetch(source.url, {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ViewTubeNews/1.0; +https://viewtube.co.ke)' },
+    });
+    if (!res.ok) return [];
+    return parseRss(await res.text(), source);
+  } catch { return []; }
+  finally { clearTimeout(timer); }
+}
+
+async function refreshNews() {
+  const results = await Promise.all(NEWS_SOURCES.map(fetchOneFeed));
+  let items = results.flat();
+  // De-duplicate by title (wire stories repeat across outlets)
+  const seen = new Set();
+  items = items.filter(i => {
+    const key = i.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  // Newest first; undated items sink to the bottom
+  items.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+  items = items.slice(0, 60);
+  if (items.length) {
+    await db.doc(NEWS_DOC).set({ items, updatedAt: Date.now() }).catch(() => {});
+  }
+  return items;
+}
+
+// Served from a single cached Firestore document — 1 read per request regardless of
+// how many users, and the upstream feeds are hit at most once every 2 hours.
+app.get('/news', wrap(async (req, res) => {
+  const doc = await db.doc(NEWS_DOC).get().catch(() => null);
+  const cached = doc?.exists ? doc.data() : null;
+  const fresh = cached && (Date.now() - (cached.updatedAt || 0) < NEWS_TTL_MS);
+
+  if (fresh) {
+    res.set('Cache-Control', 'public, max-age=600');
+    return res.json({ items: cached.items || [], updatedAt: cached.updatedAt, cached: true });
+  }
+
+  const items = await refreshNews();
+  if (!items.length && cached?.items?.length) {
+    // Upstream failed — serve the stale copy rather than an empty page
+    return res.json({ items: cached.items, updatedAt: cached.updatedAt, stale: true });
+  }
+  res.set('Cache-Control', 'public, max-age=600');
+  res.json({ items, updatedAt: Date.now() });
+}));
+
 // ─── Community posts ────────────────────────────────────────────
 const POST_NOTIFY_CAP = 300;   // don't fan out beyond this many subscribers
 
