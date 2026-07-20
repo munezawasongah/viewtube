@@ -538,6 +538,96 @@
 
     .gradient-text { background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
+    /* ═══ CHANNEL TABS ═══ */
+    .ch-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 20px 0 18px; }
+    .ch-tab { background: none; border: none; color: var(--muted); font-size: 15px; font-weight: 500; padding: 12px 18px; cursor: pointer; border-bottom: 2px solid transparent; font-family: var(--font-body); transition: color .15s; }
+    .ch-tab:hover { color: var(--text); }
+    .ch-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+    /* ═══ POST COMPOSER ═══ */
+    .post-composer { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 18px; }
+    .post-composer textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 12px; font-size: 14px; font-family: var(--font-body); resize: vertical; outline: none; box-sizing: border-box; }
+    .post-composer textarea:focus { border-color: var(--accent); }
+    .post-composer-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+
+    /* ═══ POSTS ═══ */
+    .post { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+    .post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .post-avatar { width: 40px; height: 40px; border-radius: 50%; background: #3f3f3f; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; overflow: hidden; flex-shrink: 0; cursor: pointer; }
+    .post-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .post-author { font-weight: 600; font-size: 14px; cursor: pointer; }
+    .post-time { font-size: 12px; color: var(--muted); }
+    .post-body { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .post-image { max-width: 100%; border-radius: 10px; margin-top: 10px; display: block; cursor: pointer; }
+    .post-actions { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
+    .post-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 6px 10px; border-radius: 20px; font-family: var(--font-body); }
+    .post-btn:hover { background: var(--surface); color: var(--text); }
+    .post-btn.liked { color: var(--accent); }
+    .post-menu-btn { margin-left: auto; }
+    .post-loading { color: var(--muted); font-size: 14px; padding: 24px 0; text-align: center; }
+
+    /* ═══ NEWS ═══ */
+    .news-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+    .news-updated { font-size: 12px; color: var(--muted); }
+    .news-filters { display: flex; gap: 8px; margin: 16px 0 20px; flex-wrap: wrap; }
+    .news-chip {
+      background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+      padding: 8px 18px; border-radius: 40px; font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: var(--font-body); transition: all .15s; white-space: nowrap;
+    }
+    .news-chip:hover { color: var(--text); border-color: var(--muted); }
+    .news-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+    /* Card: the anchor itself, so the whole thing is one big tap target */
+    a.news-item {
+      display: flex; flex-direction: column;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; text-decoration: none !important; color: var(--text);
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+    }
+    a.news-item:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 28px rgba(0,0,0,0.28); }
+    a.news-item:visited, a.news-item * { color: inherit; text-decoration: none; }
+
+    .news-thumb-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--surface); overflow: hidden; }
+    .news-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .news-thumb-fallback {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--surface), var(--card));
+      color: var(--muted); font-size: 26px; font-weight: 700; font-family: var(--font-head);
+    }
+    .news-region-tag {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+      color: #fff; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+      letter-spacing: .03em;
+    }
+
+    .news-content { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+    .news-title {
+      font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 7px;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .news-snippet {
+      font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 12px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .news-meta {
+      margin-top: auto; display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--muted); padding-top: 10px; border-top: 1px solid var(--border);
+    }
+    .news-source { color: var(--accent); font-weight: 600; }
+    .news-dot { opacity: .5; }
+
+    @media (max-width: 900px) {
+      .news-grid { grid-template-columns: 1fr; gap: 14px; }
+      .news-title { font-size: 15px; -webkit-line-clamp: 3; }
+      .news-filters { gap: 6px; margin: 14px 0 16px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+      .news-filters::-webkit-scrollbar { display: none; }
+      .news-chip { padding: 7px 15px; font-size: 12.5px; }
+    }
+
     /* ─── PRODUCTION ADDITIONS ─── */
     .skeleton { background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--radius); }
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -992,11 +1082,11 @@
 
   <!-- CHANNEL -->
   <section class="page" id="page-news">
-    <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
-      <div class="section-title" style="margin-bottom:4px;">News</div>
-      <span id="news-updated" style="font-size:12px; color:var(--muted);"></span>
+    <div class="news-head">
+      <div class="section-title" style="margin-bottom:0;">News</div>
+      <span class="news-updated" id="news-updated"></span>
       <span style="flex:1"></span>
-      <button class="btn btn-ghost" onclick="loadNews(true)" style="padding:6px 12px; font-size:13px;">Refresh</button>
+      <button class="btn btn-ghost" onclick="loadNews(true)" style="padding:7px 14px; font-size:13px;">↻ Refresh</button>
     </div>
     <div class="news-filters">
       <button class="news-chip active" data-region="all" onclick="filterNews('all')">All</button>
@@ -1004,7 +1094,7 @@
       <button class="news-chip" data-region="Africa" onclick="filterNews('Africa')">Africa</button>
       <button class="news-chip" data-region="World" onclick="filterNews('World')">World</button>
     </div>
-    <div id="news-list"></div>
+    <div class="news-grid" id="news-list"></div>
     <div id="news-empty" style="display:none;" class="empty-state">
       <h3>No headlines right now</h3>
       <p>News updates every couple of hours. Try refreshing in a moment.</p>
@@ -3714,6 +3804,18 @@ function filterNews(region) {
   renderNews();
 }
 
+// Some feeds link images that 404 or block hotlinking — swap in a clean fallback
+function newsImgFallback(img) {
+  const wrap = img.parentNode;
+  const src = img.getAttribute('data-source') || '';
+  const tag = wrap.querySelector('.news-region-tag');
+  img.remove();
+  const fb = document.createElement('div');
+  fb.className = 'news-thumb-fallback';
+  fb.textContent = src;
+  wrap.insertBefore(fb, tag || null);
+}
+
 function renderNews() {
   const list = document.getElementById('news-list');
   const empty = document.getElementById('news-empty');
@@ -3721,14 +3823,18 @@ function renderNews() {
   empty.style.display = items.length ? 'none' : '';
   list.innerHTML = items.map(i => `
     <a class="news-item" href="${esc(i.link)}" target="_blank" rel="noopener noreferrer">
-      ${i.image ? `<img class="news-thumb" src="${esc(i.image)}" loading="lazy" alt="" onerror="this.style.display='none'" />` : ''}
-      <div class="news-body">
+      <div class="news-thumb-wrap">
+        ${i.image
+          ? `<img class="news-thumb" src="${esc(i.image)}" loading="lazy" alt="" onerror="newsImgFallback(this)" data-source="${esc(i.source)}" />`
+          : `<div class="news-thumb-fallback">${esc(i.source)}</div>`}
+        <span class="news-region-tag">${esc(i.region)}</span>
+      </div>
+      <div class="news-content">
         <div class="news-title">${esc(i.title)}</div>
         ${i.snippet ? `<div class="news-snippet">${esc(i.snippet)}</div>` : ''}
         <div class="news-meta">
           <span class="news-source">${esc(i.source)}</span>
-          ${i.publishedAt ? `<span>·</span><span>${timeAgo({ seconds: i.publishedAt })}</span>` : ''}
-          <span>·</span><span>${esc(i.region)}</span>
+          ${i.publishedAt ? `<span class="news-dot">·</span><span>${timeAgo({ seconds: i.publishedAt })}</span>` : ''}
         </div>
       </div>
     </a>`).join('');
