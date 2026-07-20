@@ -748,6 +748,29 @@ app.get('/news', wrap(async (req, res) => {
   res.json({ items, updatedAt: Date.now() });
 }));
 
+// Trending photos — drawn from the cached news items that carry imagery.
+// Attribution and a link back to the publisher are always included.
+app.get('/news/photos', wrap(async (req, res) => {
+  const doc = await db.doc(NEWS_DOC).get().catch(() => null);
+  let items = doc?.exists ? (doc.data().items || []) : [];
+  if (!items.length) items = await refreshNews();
+
+  const photos = items
+    .filter(i => i.image)
+    .map(i => ({
+      image: i.image,
+      title: i.title,
+      link: i.link,
+      source: i.source,
+      region: i.region,
+      publishedAt: i.publishedAt || null,
+    }))
+    .slice(0, 40);
+
+  res.set('Cache-Control', 'public, max-age=600');
+  res.json({ photos });
+}));
+
 // ─── Community posts ────────────────────────────────────────────
 const POST_NOTIFY_CAP = 300;   // don't fan out beyond this many subscribers
 

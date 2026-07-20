@@ -628,6 +628,40 @@
       .news-chip { padding: 7px 15px; font-size: 12.5px; }
     }
 
+    /* ═══ TRENDING PHOTOS ═══ */
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+    .photo-card {
+      margin: 0; position: relative; border-radius: var(--radius); overflow: hidden;
+      cursor: pointer; background: var(--surface); aspect-ratio: 4 / 3;
+      border: 1px solid var(--border); transition: transform .15s, border-color .15s;
+    }
+    .photo-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-card figcaption {
+      position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 12px;
+      background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55) 55%, transparent);
+      color: #fff;
+    }
+    .photo-cap-title {
+      font-size: 13px; font-weight: 600; line-height: 1.35; margin-bottom: 4px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .photo-cap-meta { font-size: 11px; opacity: .85; }
+    .photo-cap-meta .news-source { color: var(--accent); }
+
+    /* Full-screen photo viewer */
+    #photo-viewer { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.94); z-index: 1200; align-items: center; justify-content: center; padding: 20px; }
+    #photo-viewer.open { display: flex; }
+    .pv-inner { max-width: 1000px; width: 100%; max-height: 92vh; max-height: 92dvh; display: flex; flex-direction: column; align-items: center; }
+    #photo-viewer img { max-width: 100%; max-height: 70vh; max-height: 70dvh; border-radius: 10px; object-fit: contain; }
+    .pv-caption { color: #fff; text-align: center; margin-top: 16px; max-width: 700px; }
+    .pv-title { font-size: 16px; font-weight: 600; line-height: 1.4; margin-bottom: 6px; }
+    .pv-meta { font-size: 13px; color: #aaa; }
+    @media (max-width: 900px) {
+      .photo-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+      .pv-title { font-size: 14px; }
+    }
+
     /* ─── PRODUCTION ADDITIONS ─── */
     .skeleton { background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--radius); }
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -893,8 +927,32 @@
 
   <!-- TRENDING -->
   <section class="page" id="page-trending">
-    <div class="section-title" style="font-size:24px; margin-bottom:24px;">🔥 Trending</div>
-    <div class="video-grid" id="trending-grid"></div>
+    <div class="section-title" style="font-size:24px; margin-bottom:8px;">🔥 Trending</div>
+    <div class="ch-tabs" style="margin-top:12px;">
+      <button class="ch-tab active" id="tr-tab-videos" onclick="switchTrendingTab('videos')">Videos</button>
+      <button class="ch-tab" id="tr-tab-news" onclick="switchTrendingTab('news')">News</button>
+      <button class="ch-tab" id="tr-tab-photos" onclick="switchTrendingTab('photos')">Photos</button>
+    </div>
+
+    <div id="tr-pane-videos">
+      <div class="video-grid" id="trending-grid"></div>
+    </div>
+
+    <div id="tr-pane-news" style="display:none;">
+      <div class="news-grid" id="tr-news-list"></div>
+      <div id="tr-news-empty" style="display:none;" class="empty-state">
+        <h3>No headlines right now</h3>
+        <p>News refreshes every couple of hours.</p>
+      </div>
+    </div>
+
+    <div id="tr-pane-photos" style="display:none;">
+      <div class="photo-grid" id="tr-photo-grid"></div>
+      <div id="tr-photos-empty" style="display:none;" class="empty-state">
+        <h3>No photos right now</h3>
+        <p>Photos come from the latest news stories and refresh through the day.</p>
+      </div>
+    </div>
   </section>
 
   <!-- SUBSCRIPTIONS -->
@@ -1611,6 +1669,18 @@
   </a>
 </nav>
 
+<div id="photo-viewer" onclick="closePhotoViewer()">
+  <button class="lb-close" onclick="closePhotoViewer()">✕</button>
+  <div class="pv-inner" onclick="event.stopPropagation()">
+    <img id="photo-viewer-img" alt="" />
+    <div class="pv-caption">
+      <div class="pv-title" id="photo-viewer-title"></div>
+      <div class="pv-meta"><span id="photo-viewer-source"></span></div>
+      <a id="photo-viewer-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" style="margin-top:10px; display:inline-block; padding:8px 16px; font-size:13px;">Read the full story ↗</a>
+    </div>
+  </div>
+</div>
+
 <div id="lightbox" onclick="closeLightbox()">
   <button class="lb-close" onclick="closeLightbox()">✕</button>
   <img id="lightbox-img" onclick="event.stopPropagation()" />
@@ -1985,7 +2055,7 @@ function loadPageData(name) {
   if (name === 'news') loadNews();
   if (name === 'home') renderContinueRow();
   if (name === 'advertise') loadAdEnquiries();
-  if (name === 'trending') loadTrending();
+  if (name === 'trending') { switchTrendingTab(trendingTab || 'videos'); loadTrending(); }
   if (name === 'subscriptions') loadSubscriptions();
   if (name === 'channel') loadChannel(currentUser?.uid);
   if (name === 'studio') loadStudio();
@@ -3805,6 +3875,27 @@ function filterNews(region) {
 }
 
 // Some feeds link images that 404 or block hotlinking — swap in a clean fallback
+// Shared news card markup — used by the News page and the Trending > News tab
+function newsCardHTML(i) {
+  return `
+    <a class="news-item" href="${esc(i.link)}" target="_blank" rel="noopener noreferrer">
+      <div class="news-thumb-wrap">
+        ${i.image
+          ? `<img class="news-thumb" src="${esc(i.image)}" loading="lazy" alt="" onerror="newsImgFallback(this)" data-source="${esc(i.source)}" />`
+          : `<div class="news-thumb-fallback">${esc(i.source)}</div>`}
+        <span class="news-region-tag">${esc(i.region)}</span>
+      </div>
+      <div class="news-content">
+        <div class="news-title">${esc(i.title)}</div>
+        ${i.snippet ? `<div class="news-snippet">${esc(i.snippet)}</div>` : ''}
+        <div class="news-meta">
+          <span class="news-source">${esc(i.source)}</span>
+          ${i.publishedAt ? `<span class="news-dot">·</span><span>${timeAgo({ seconds: i.publishedAt })}</span>` : ''}
+        </div>
+      </div>
+    </a>`;
+}
+
 function newsImgFallback(img) {
   const wrap = img.parentNode;
   const src = img.getAttribute('data-source') || '';
@@ -3821,23 +3912,7 @@ function renderNews() {
   const empty = document.getElementById('news-empty');
   const items = newsRegion === 'all' ? newsItems : newsItems.filter(i => i.region === newsRegion);
   empty.style.display = items.length ? 'none' : '';
-  list.innerHTML = items.map(i => `
-    <a class="news-item" href="${esc(i.link)}" target="_blank" rel="noopener noreferrer">
-      <div class="news-thumb-wrap">
-        ${i.image
-          ? `<img class="news-thumb" src="${esc(i.image)}" loading="lazy" alt="" onerror="newsImgFallback(this)" data-source="${esc(i.source)}" />`
-          : `<div class="news-thumb-fallback">${esc(i.source)}</div>`}
-        <span class="news-region-tag">${esc(i.region)}</span>
-      </div>
-      <div class="news-content">
-        <div class="news-title">${esc(i.title)}</div>
-        ${i.snippet ? `<div class="news-snippet">${esc(i.snippet)}</div>` : ''}
-        <div class="news-meta">
-          <span class="news-source">${esc(i.source)}</span>
-          ${i.publishedAt ? `<span class="news-dot">·</span><span>${timeAgo({ seconds: i.publishedAt })}</span>` : ''}
-        </div>
-      </div>
-    </a>`).join('');
+  list.innerHTML = items.map(newsCardHTML).join('');
 }
 
 // Auto-refresh every 2 hours while the app is open (skipped when tab is hidden)
@@ -3846,6 +3921,85 @@ setInterval(() => {
     loadNews(true);
   }
 }, NEWS_CLIENT_TTL);
+
+// ─── Trending tabs ──────────────────────────────────────────────
+let trendingTab = 'videos';
+let trendingPhotos = [];
+
+function switchTrendingTab(tab) {
+  trendingTab = tab;
+  ['videos', 'news', 'photos'].forEach(t => {
+    document.getElementById('tr-tab-' + t)?.classList.toggle('active', t === tab);
+    const pane = document.getElementById('tr-pane-' + t);
+    if (pane) pane.style.display = t === tab ? '' : 'none';
+  });
+  if (tab === 'news') loadTrendingNews();
+  if (tab === 'photos') loadTrendingPhotos();
+}
+
+async function loadTrendingNews() {
+  const list = document.getElementById('tr-news-list');
+  const empty = document.getElementById('tr-news-empty');
+  if (list.dataset.loaded === '1') return;      // already populated this session
+  list.innerHTML = '<div class="post-loading">Loading headlines…</div>';
+  try {
+    const data = await api('/news');
+    const items = (data.items || []).slice(0, 24);
+    list.innerHTML = items.map(newsCardHTML).join('');
+    list.dataset.loaded = items.length ? '1' : '';
+    empty.style.display = items.length ? 'none' : '';
+  } catch (e) {
+    list.innerHTML = '';
+    empty.style.display = '';
+  }
+}
+
+async function loadTrendingPhotos() {
+  const grid = document.getElementById('tr-photo-grid');
+  const empty = document.getElementById('tr-photos-empty');
+  if (grid.dataset.loaded === '1') return;
+  grid.innerHTML = '<div class="post-loading">Loading photos…</div>';
+  try {
+    const { photos } = await api('/news/photos');
+    trendingPhotos = photos || [];
+    grid.innerHTML = trendingPhotos.map((p, idx) => `
+      <figure class="photo-card" onclick="openPhotoViewer(${idx})">
+        <img src="${esc(p.image)}" loading="lazy" alt="" onerror="this.closest('.photo-card').remove()" />
+        <figcaption>
+          <div class="photo-cap-title">${esc(p.title)}</div>
+          <div class="photo-cap-meta"><span class="news-source">${esc(p.source)}</span>${p.publishedAt ? ' · ' + timeAgo({ seconds: p.publishedAt }) : ''}</div>
+        </figcaption>
+      </figure>`).join('');
+    grid.dataset.loaded = trendingPhotos.length ? '1' : '';
+    empty.style.display = trendingPhotos.length ? 'none' : '';
+  } catch (e) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+  }
+}
+
+// Full-screen viewer with attribution and a link to the source article
+function openPhotoViewer(idx) {
+  const p = trendingPhotos[idx];
+  if (!p) return;
+  document.getElementById('photo-viewer-img').src = p.image;
+  document.getElementById('photo-viewer-title').textContent = p.title;
+  document.getElementById('photo-viewer-source').textContent = p.source + (p.region ? ' · ' + p.region : '');
+  const link = document.getElementById('photo-viewer-link');
+  link.href = p.link;
+  document.getElementById('photo-viewer').classList.add('open');
+  document.body.classList.add('drawer-open');
+  try { pushOverlayState('photo-viewer'); } catch {}
+}
+
+function closePhotoViewer(fromPop) {
+  const el = document.getElementById('photo-viewer');
+  const wasOpen = el.classList.contains('open');
+  el.classList.remove('open');
+  document.body.classList.remove('drawer-open');
+  document.getElementById('photo-viewer-img').src = '';
+  if (wasOpen && !fromPop && history.state?.overlay === 'photo-viewer') history.back();
+}
 
 // ─── Legal pages ────────────────────────────────────────────────
 function showLegal(section) {
@@ -3871,7 +4025,8 @@ function toggleTheme() {
 
 // ─── Browser / Android back button ──────────────────────────────
 function anyOverlayOpen() {
-  return document.getElementById('lightbox')?.classList.contains('open')
+  return document.getElementById('photo-viewer')?.classList.contains('open')
+      || document.getElementById('lightbox')?.classList.contains('open')
       || document.getElementById('menu-sheet')?.classList.contains('open')
       || document.getElementById('notif-sheet')?.classList.contains('open')
       || document.getElementById('acct-sheet')?.classList.contains('open')
