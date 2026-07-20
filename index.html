@@ -662,6 +662,76 @@
       .pv-title { font-size: 14px; }
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       MOBILE HOME — restyled for density and hierarchy.
+       Previously every card was full-width 16:9 with 20px gaps, so a
+       phone screen fitted only two videos and clipped a third.
+       Now: one featured card, then a compact 2-up grid.
+       ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      /* Tighter category rail */
+      #page-home .categories { gap: 7px; margin-bottom: 16px; padding-bottom: 2px; }
+      #page-home .cat-pill { padding: 7px 14px; font-size: 12.5px; }
+
+      /* Two-up grid: six videos visible instead of two */
+      #page-home .video-grid,
+      #page-trending .video-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px 10px;
+        margin-bottom: 26px;
+      }
+
+      /* Compact card typography for the 2-up layout */
+      #page-home .video-thumb,
+      #page-trending .video-thumb { border-radius: 10px; }
+      #page-home .video-info,
+      #page-trending .video-info { padding: 8px 0 0; gap: 8px; }
+      #page-home .video-avatar,
+      #page-trending .video-avatar { width: 26px; height: 26px; font-size: 11px; }
+      #page-home .video-title,
+      #page-trending .video-title { font-size: 13px; line-height: 1.35; margin-bottom: 3px; -webkit-line-clamp: 2; }
+      #page-home .video-sub,
+      #page-trending .video-sub { font-size: 11px; line-height: 1.4; }
+      #page-home .video-duration { font-size: 11px; padding: 2px 5px; bottom: 6px; right: 6px; }
+
+      /* FEATURED: the first card on the home feed spans both columns */
+      #home-grid > .video-card:first-child { grid-column: 1 / -1; }
+      #home-grid > .video-card:first-child .video-thumb { border-radius: 12px; }
+      #home-grid > .video-card:first-child .video-title { font-size: 15px; -webkit-line-clamp: 2; }
+      #home-grid > .video-card:first-child .video-sub { font-size: 12px; }
+      #home-grid > .video-card:first-child .video-avatar { width: 32px; height: 32px; font-size: 12px; }
+      #home-grid > .video-card:first-child .video-info { padding-top: 10px; gap: 10px; }
+
+      /* Section headings sit closer to their content */
+      #page-home .section-title { font-size: 16px; margin-bottom: 10px; }
+
+      /* Continue Watching + Live stay as a horizontal rail — scrolling
+         sideways beats burning vertical space on a phone. */
+      #continue-grid, #live-grid {
+        display: flex !important;
+        overflow-x: auto;
+        gap: 10px;
+        padding-bottom: 6px;
+        margin-bottom: 22px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+      }
+      #continue-grid::-webkit-scrollbar, #live-grid::-webkit-scrollbar { display: none; }
+      #continue-grid > .video-card, #live-grid > .video-card {
+        flex: 0 0 63%;
+        scroll-snap-align: start;
+      }
+
+      /* Skeletons match the 2-up shape so loading doesn't jump */
+      #page-home .skeleton-card { height: auto; aspect-ratio: 16/9; border-radius: 10px; }
+    }
+
+    /* Very small phones: keep two columns but tighten further */
+    @media (max-width: 380px) {
+      #page-home .video-grid, #page-trending .video-grid { gap: 12px 8px; }
+      #page-home .video-title, #page-trending .video-title { font-size: 12.5px; }
+    }
+
     /* ─── PRODUCTION ADDITIONS ─── */
     .skeleton { background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--radius); }
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
