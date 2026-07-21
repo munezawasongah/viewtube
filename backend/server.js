@@ -857,6 +857,158 @@ async function attachLiked(posts, req) {
   return posts.map(p => ({ ...p, liked: likedIds.has(p.id) }));
 }
 
+// Resolve an @handle to a uid (used by clickable mentions)
+app.get('/users/by-username/:username', wrap(async (req, res) => {
+  const snap = await db.collection('users')
+    .where('username', '==', String(req.params.username).toLowerCase())
+    .limit(1).get();
+  if (snap.empty) return res.status(404).json({ error: 'User not found' });
+  res.json({ uid: snap.docs[0].id, displayName: snap.docs[0].data().displayName || null });
+}));
+
+// ─── Post comments (threaded, same pattern as video comments) ───
+app.get('/posts/:id/comments', optionalAuth, wrap(async (req, res) => {
+  // No orderBy alongside where() — avoids needing a composite index.
+  const snap = await db.collection('post_comments')
+    .where('postId', '==', req.params.id)
+    .limit(200).get();
+  const all = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.createdAt?._seconds || a.createdAt?.seconds || 0) - (b.createdAt?._seconds || b.createdAt?.seconds || 0));
+
+  const roots = all.filter(c => !c.parentId);
+  const replies = all.filter(c => c.parentId);
+  const threaded = roots.map(r => ({ ...r, replies: replies.filter(x => x.parentId === r.id) }));
+  res.json({ comments: threaded, total: all.length });
+}));
+
+app.post('/posts/:id/comments', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const text = sanitizeText(req.body.text, 2000);
+  if (!text) return res.status(400).json({ error: 'Comment cannot be empty' });
+
+  const postRef = db.collection('posts').doc(req.params.id);
+  const postDoc = await postRef.get();
+  if (!postDoc.exists) return res.status(404).json({ error: 'Post not found' });
+
+  // Threading: a reply attaches to the ROOT comment, so threads stay 2 levels deep
+  let parentId = null;
+  if (req.body.parentId) {
+    const parentDoc = await db.collection('post_comments').doc(String(req.body.parentId)).get();
+    if (!parentDoc.exists || parentDoc.data().postId !== req.params.id) {
+      return res.status(400).json({ error: 'Invalid parent comment' });
+    }
+    parentId = parentDoc.data().parentId || parentDoc.id;
+  }
+
+  const userDoc = await db.collection('users').doc(req.user.uid).get();
+  const me = userDoc.data() || {};
+  const ref = await db.collection('post_comments').add({
+    postId: req.params.id,
+    userId: req.user.uid,
+    displayName: me.displayName || 'Viewer',
+    username: me.username || null,
+    photoURL: me.photoURL || null,
+    text,
+    parentId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  postRef.update({ commentCount: admin.firestore.FieldValue.increment(1) }).catch(() => {});
+
+  const post = postDoc.data();
+  // Notify the post author (unless commenting on their own post)
+  if (post.authorId !== req.user.uid) {
+    notify(post.authorId, 'post_comment', `${me.displayName || 'Someone'} commented on your post`, req.params.id);
+  }
+  // Notify anyone @mentioned
+  notifyMentions(text, req.user.uid, me.displayName, req.params.id);
+  // Notify the parent comment's author on a reply
+  if (parentId) {
+    const parent = await db.collection('post_comments').doc(parentId).get();
+    const pAuthor = parent.data()?.userId;
+    if (pAuthor && pAuthor !== req.user.uid && pAuthor !== post.authorId) {
+      notify(pAuthor, 'post_comment', `${me.displayName || 'Someone'} replied to your comment`, req.params.id);
+    }
+  }
+
+  res.json({ id: ref.id });
+}));
+
+app.delete('/posts/:postId/comments/:id', authMiddleware, wrap(async (req, res) => {
+  const ref = db.collection('post_comments').doc(req.params.id);
+  const doc = await ref.get();
+  if (!doc.exists) return res.status(404).json({ error: 'Comment not found' });
+  const postDoc = await db.collection('posts').doc(req.params.postId).get();
+  const isOwner = doc.data().userId === req.user.uid;
+  const isPostAuthor = postDoc.exists && postDoc.data().authorId === req.user.uid;
+  if (!isOwner && !isPostAuthor) return res.status(403).json({ error: 'Not allowed' });
+  await ref.delete();
+  db.collection('posts').doc(req.params.postId)
+    .update({ commentCount: admin.firestore.FieldValue.increment(-1) }).catch(() => {});
+  res.json({ ok: true });
+}));
+
+// Look up @usernames in text and notify those users
+function notifyMentions(text, fromUid, fromName, postId) {
+  const handles = [...new Set((String(text).match(/@([a-zA-Z0-9_]{2,30})/g) || []).map(h => h.slice(1).toLowerCase()))].slice(0, 10);
+  if (!handles.length) return;
+  db.collection('users').where('username', 'in', handles.slice(0, 10)).get()
+    .then(snap => {
+      snap.docs.forEach(d => {
+        if (d.id !== fromUid) {
+          notify(d.id, 'mention', `${fromName || 'Someone'} mentioned you in a post`, postId);
+        }
+      });
+    })
+    .catch(() => {});
+}
+
+// ─── Share a post publicly ──────────────────────────────────────
+// A share creates a NEW post that references the original. It appears on the
+// sharer's channel and in their subscribers' feeds, with full attribution.
+app.post('/posts/:id/share', authMiddleware, writeLimiter, wrap(async (req, res) => {
+  const origRef = db.collection('posts').doc(req.params.id);
+  const orig = await origRef.get();
+  if (!orig.exists) return res.status(404).json({ error: 'Post not found' });
+  const o = orig.data();
+
+  // Sharing a share should point at the ORIGINAL, not create a chain
+  const sourceId = o.sharedFrom?.postId || orig.id;
+  const source = o.sharedFrom ? o.sharedFrom : {
+    postId: orig.id,
+    authorId: o.authorId,
+    authorName: o.authorName,
+    authorPhoto: o.authorPhoto || null,
+    text: (o.text || '').slice(0, 600),
+    imageUrl: o.imageUrl || null,
+  };
+
+  const comment = sanitizeText(req.body.text, 1000);
+  const userDoc = await db.collection('users').doc(req.user.uid).get();
+  const me = userDoc.data() || {};
+
+  const ref = await db.collection('posts').add({
+    authorId: req.user.uid,
+    authorName: me.displayName || 'Viewer',
+    authorPhoto: me.photoURL || null,
+    authorUsername: me.username || null,
+    text: comment,
+    imageUrl: null,
+    sharedFrom: source,
+    likeCount: 0,
+    commentCount: 0,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  db.collection('posts').doc(sourceId)
+    .update({ shareCount: admin.firestore.FieldValue.increment(1) }).catch(() => {});
+
+  if (source.authorId !== req.user.uid) {
+    notify(source.authorId, 'post_share', `${me.displayName || 'Someone'} shared your post`, ref.id);
+  }
+  res.json({ id: ref.id });
+}));
+
 // Like / unlike a post
 app.post('/posts/:id/like', authMiddleware, writeLimiter, wrap(async (req, res) => {
   const postRef = db.collection('posts').doc(req.params.id);

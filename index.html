@@ -763,6 +763,67 @@
       #page-home .video-title, #page-trending .video-title { font-size: 12.5px; }
     }
 
+    /* ═══ POST COMMENTS, MENTIONS, SHARES ═══ */
+    .post-shared-tag { font-weight: 400; font-size: 12px; color: var(--muted); }
+
+    /* Quoted (shared) post */
+    .post-quoted {
+      border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+      margin-top: 10px; background: var(--surface); cursor: pointer; transition: border-color .15s;
+    }
+    .post-quoted:hover { border-color: var(--accent); }
+    .pq-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .pq-avatar { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; background: #3f3f3f; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+    .pq-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .pq-author { font-size: 13px; font-weight: 600; }
+    .pq-text { font-size: 13px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+    .pq-image { max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; }
+
+    /* Mentions */
+    .mention { color: var(--accent); font-weight: 500; cursor: pointer; }
+    .mention:hover { text-decoration: underline; }
+
+    /* Comments */
+    .post-comments { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .pc-compose { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+    .pc-compose input {
+      flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; color: var(--text); padding: 9px 14px; font-size: 13px;
+      font-family: var(--font-body); outline: none;
+    }
+    .pc-compose input:focus { border-color: var(--accent); }
+    .pc-compose-reply { margin: 8px 0 4px; }
+    .pc-signin { color: var(--muted); font-size: 13px; padding: 4px 0 12px; }
+    .pc-empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+
+    .pc-item { display: flex; gap: 10px; margin-bottom: 14px; }
+    .pc-reply { margin-left: 6px; margin-top: 12px; padding-left: 12px; border-left: 2px solid var(--border); }
+    .pc-avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: #3f3f3f; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+      font-weight: 600; overflow: hidden; cursor: pointer;
+    }
+    .pc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .pc-body { flex: 1; min-width: 0; }
+    .pc-meta { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-bottom: 3px; }
+    .pc-name { font-size: 13px; font-weight: 600; cursor: pointer; }
+    .pc-name:hover { color: var(--accent); }
+    .pc-handle { font-size: 12px; color: var(--muted); }
+    .pc-time { font-size: 11px; color: var(--muted); }
+    .pc-text { font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .pc-actions { display: flex; gap: 12px; margin-top: 5px; }
+    .pc-actions button {
+      background: none; border: none; color: var(--muted); font-size: 12px;
+      cursor: pointer; padding: 2px 0; font-family: var(--font-body); font-weight: 500;
+    }
+    .pc-actions button:hover { color: var(--text); }
+
+    @media (max-width: 900px) {
+      .pc-avatar { width: 28px; height: 28px; font-size: 11px; }
+      .pc-text { font-size: 13px; }
+      .pc-reply { margin-left: 2px; padding-left: 9px; }
+    }
+
     /* ─── PRODUCTION ADDITIONS ─── */
     .skeleton { background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--radius); }
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -1769,6 +1830,22 @@
     Menu
   </a>
 </nav>
+
+<div class="modal-overlay" id="share-post-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Share this post</h3>
+      <button class="modal-close" onclick="closeModal('share-post-modal')">✕</button>
+    </div>
+    <p style="color:var(--muted); font-size:13px; margin-bottom:12px;">This will appear on your channel and in your subscribers' Community feed, crediting the original author.</p>
+    <textarea id="share-post-text" placeholder="Add your thoughts (optional)…" rows="3" maxlength="1000"
+              style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:12px; font-size:14px; font-family:var(--font-body); resize:vertical; outline:none; box-sizing:border-box;"></textarea>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px;">
+      <button class="btn btn-ghost" onclick="closeModal('share-post-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSharePost()">Share</button>
+    </div>
+  </div>
+</div>
 
 <div id="photo-viewer" onclick="closePhotoViewer()">
   <button class="lb-close" onclick="closePhotoViewer()">✕</button>
@@ -3781,25 +3858,56 @@ async function loadChannelPosts(uid) {
 
 function renderPost(p) {
   const mine = currentUser && currentUser.uid === p.authorId;
+  const s = p.sharedFrom;
   return `
     <div class="post" id="post-${esc(p.id)}">
       <div class="post-head">
         <div class="post-avatar" onclick="loadChannelPage('${esc(p.authorId)}')">${avatarHTML(p.authorPhoto, p.authorName)}</div>
         <div style="min-width:0;">
-          <div class="post-author" onclick="loadChannelPage('${esc(p.authorId)}')">${esc(p.authorName)}</div>
+          <div class="post-author" onclick="loadChannelPage('${esc(p.authorId)}')">${esc(p.authorName)}${s ? ' <span class="post-shared-tag">shared a post</span>' : ''}</div>
           <div class="post-time">${timeAgo(p.createdAt)}</div>
         </div>
         ${mine ? `<button class="post-btn post-menu-btn" onclick="deletePost('${esc(p.id)}')" title="Delete post">🗑</button>` : ''}
       </div>
-      ${p.text ? `<div class="post-body">${linkify(esc(p.text))}</div>` : ''}
+      ${p.text ? `<div class="post-body">${linkify(mentionify(esc(p.text)))}</div>` : ''}
       ${p.imageUrl ? `<img class="post-image" src="${esc(p.imageUrl)}" loading="lazy" onclick="openLightbox(this.src)" alt="" />` : ''}
+      ${s ? `
+        <div class="post-quoted" onclick="loadChannelPage('${esc(s.authorId)}')">
+          <div class="pq-head">
+            <div class="pq-avatar">${avatarHTML(s.authorPhoto, s.authorName)}</div>
+            <span class="pq-author">${esc(s.authorName)}</span>
+          </div>
+          ${s.text ? `<div class="pq-text">${esc(s.text)}</div>` : ''}
+          ${s.imageUrl ? `<img class="pq-image" src="${esc(s.imageUrl)}" loading="lazy" alt="" />` : ''}
+        </div>` : ''}
       <div class="post-actions">
         <button class="post-btn ${p.liked ? 'liked' : ''}" id="plike-${esc(p.id)}" onclick="togglePostLike('${esc(p.id)}')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="${p.liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           <span id="plikec-${esc(p.id)}">${p.likeCount || 0}</span>
         </button>
+        <button class="post-btn" onclick="togglePostComments('${esc(p.id)}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span id="pcc-${esc(p.id)}">${p.commentCount || 0}</span>
+        </button>
+        <button class="post-btn" onclick="openShareModal('${esc(p.id)}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <span>${p.shareCount || 0}</span>
+        </button>
       </div>
+      <div class="post-comments" id="pcomments-${esc(p.id)}" style="display:none;"></div>
     </div>`;
+}
+
+// Turn @handles into clickable mentions
+function mentionify(text) {
+  return text.replace(/@([a-zA-Z0-9_]{2,30})/g, '<span class="mention" onclick="event.stopPropagation(); openHandle(\'$1\')">@$1</span>');
+}
+
+async function openHandle(username) {
+  try {
+    const { uid } = await api('/users/by-username/' + encodeURIComponent(username));
+    if (uid) loadChannelPage(uid);
+  } catch { showToast('User not found', true); }
 }
 
 // Turn bare URLs into links (posts are the one place users paste them)
@@ -3876,6 +3984,128 @@ async function deletePost(id) {
     await api('/posts/' + encodeURIComponent(id), { method: 'DELETE', authRequired: true });
     document.getElementById('post-' + id)?.remove();
     showToast('Post deleted');
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ─── Post comments, mentions, sharing ───────────────────────────
+async function togglePostComments(postId) {
+  const box = document.getElementById('pcomments-' + postId);
+  if (!box) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  if (box.dataset.loaded === '1') return;
+  box.innerHTML = '<div class="post-loading">Loading comments…</div>';
+  await loadPostComments(postId);
+}
+
+async function loadPostComments(postId) {
+  const box = document.getElementById('pcomments-' + postId);
+  if (!box) return;
+  try {
+    const { comments, total } = await api('/posts/' + encodeURIComponent(postId) + '/comments');
+    const countEl = document.getElementById('pcc-' + postId);
+    if (countEl) countEl.textContent = total || 0;
+    box.innerHTML = `
+      ${currentUser ? `
+        <div class="pc-compose">
+          <div class="pc-avatar">${avatarHTML(myProfile?.photoURL, myProfile?.displayName)}</div>
+          <input type="text" id="pcinput-${esc(postId)}" placeholder="Add a comment… use @ to mention someone"
+                 onkeydown="if(event.key==='Enter') submitPostComment('${esc(postId)}')" />
+          <button class="btn btn-primary" style="padding:7px 14px; font-size:13px;" onclick="submitPostComment('${esc(postId)}')">Post</button>
+        </div>` : '<div class="pc-signin">Sign in to join the conversation.</div>'}
+      ${comments.map(c => postCommentHTML(c, postId)).join('') || '<div class="pc-empty">No comments yet — be the first.</div>'}`;
+    box.dataset.loaded = '1';
+  } catch (e) {
+    box.innerHTML = '<div class="pc-empty">Could not load comments.</div>';
+  }
+}
+
+function postCommentHTML(c, postId, isReply) {
+  const mine = currentUser && currentUser.uid === c.userId;
+  return `
+    <div class="pc-item ${isReply ? 'pc-reply' : ''}" id="pc-${esc(c.id)}">
+      <div class="pc-avatar" onclick="loadChannelPage('${esc(c.userId)}')">${avatarHTML(c.photoURL, c.displayName)}</div>
+      <div class="pc-body">
+        <div class="pc-meta">
+          <span class="pc-name" onclick="loadChannelPage('${esc(c.userId)}')">${esc(c.displayName)}</span>
+          ${c.username ? `<span class="pc-handle">@${esc(c.username)}</span>` : ''}
+          <span class="pc-time">${timeAgo(c.createdAt)}</span>
+        </div>
+        <div class="pc-text">${linkify(mentionify(esc(c.text)))}</div>
+        <div class="pc-actions">
+          ${currentUser ? `<button onclick="replyToComment('${esc(postId)}','${esc(c.id)}','${esc(c.username || c.displayName)}')">Reply</button>` : ''}
+          ${mine ? `<button onclick="deletePostComment('${esc(postId)}','${esc(c.id)}')">Delete</button>` : ''}
+        </div>
+        <div id="pcreply-${esc(c.id)}"></div>
+        ${(c.replies || []).map(r => postCommentHTML(r, postId, true)).join('')}
+      </div>
+    </div>`;
+}
+
+function replyToComment(postId, commentId, handle) {
+  const slot = document.getElementById('pcreply-' + commentId);
+  if (!slot) return;
+  if (slot.dataset.open === '1') { slot.innerHTML = ''; slot.dataset.open = ''; return; }
+  slot.dataset.open = '1';
+  slot.innerHTML = `
+    <div class="pc-compose pc-compose-reply">
+      <input type="text" id="pcreplyinput-${esc(commentId)}" value="@${esc(handle)} "
+             onkeydown="if(event.key==='Enter') submitPostComment('${esc(postId)}','${esc(commentId)}')" />
+      <button class="btn btn-primary" style="padding:6px 12px; font-size:12px;" onclick="submitPostComment('${esc(postId)}','${esc(commentId)}')">Reply</button>
+    </div>`;
+  const input = document.getElementById('pcreplyinput-' + commentId);
+  input?.focus();
+  input?.setSelectionRange(input.value.length, input.value.length);
+}
+
+async function submitPostComment(postId, parentId) {
+  const input = document.getElementById(parentId ? 'pcreplyinput-' + parentId : 'pcinput-' + postId);
+  const text = (input?.value || '').trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    await api('/posts/' + encodeURIComponent(postId) + '/comments', {
+      method: 'POST', authRequired: true,
+      body: { text, ...(parentId ? { parentId } : {}) },
+    });
+    const box = document.getElementById('pcomments-' + postId);
+    if (box) box.dataset.loaded = '';
+    await loadPostComments(postId);
+  } catch (e) { showToast(e.message, true); if (input) input.value = text; }
+}
+
+async function deletePostComment(postId, commentId) {
+  if (!confirm('Delete this comment?')) return;
+  try {
+    await api(`/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, { method: 'DELETE', authRequired: true });
+    const box = document.getElementById('pcomments-' + postId);
+    if (box) box.dataset.loaded = '';
+    await loadPostComments(postId);
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ─── Share ──────────────────────────────────────────────────────
+let sharingPostId = null;
+
+function openShareModal(postId) {
+  if (!currentUser) return openModal('auth-modal');
+  sharingPostId = postId;
+  document.getElementById('share-post-text').value = '';
+  openModal('share-post-modal');
+}
+
+async function confirmSharePost() {
+  if (!sharingPostId) return;
+  const text = document.getElementById('share-post-text').value.trim();
+  try {
+    await api('/posts/' + encodeURIComponent(sharingPostId) + '/share', {
+      method: 'POST', authRequired: true, body: { text },
+    });
+    closeModal('share-post-modal');
+    showToast('Shared to your channel');
+    sharingPostId = null;
+    if (document.getElementById('page-community')?.classList.contains('active')) loadCommunityFeed();
+    else if (viewingChannelUid) loadChannelPosts(viewingChannelUid);
   } catch (e) { showToast(e.message, true); }
 }
 
