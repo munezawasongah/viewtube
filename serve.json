@@ -1,0 +1,25 @@
+{
+  "rewrites": [
+    { "source": "/.well-known/assetlinks.json", "destination": "/.well-known/assetlinks.json" },
+    { "source": "/manifest.webmanifest", "destination": "/manifest.webmanifest" },
+    { "source": "/service-worker.js", "destination": "/service-worker.js" },
+    { "source": "/icons/**", "destination": "/icons/:splat" }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    },
+    {
+      "source": "/service-worker.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Content-Type", "value": "application/javascript" }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [{ "key": "Content-Type", "value": "application/manifest+json" }]
+    }
+  ]
+}

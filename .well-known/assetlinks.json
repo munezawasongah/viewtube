@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "ke.co.viewtube.www.twa",
+        "sha256_cert_fingerprints": ["D5:8E:5A:F0:4F:D9:09:BA:EE:18:37:F0:72:08:8D:6A:15:5E:D6:7E:19:E3:DE:E5:5F:32:C7:F6:35:34:F2:92"]
+      }
+    }]
