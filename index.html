@@ -886,6 +886,21 @@
     .chat-item .ci-last { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .chat-thread { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
     .chat-header { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 15px; }
+    .msg { position: relative; }
+    .msg-del-btn {
+      position: absolute; top: 2px; right: 4px; background: rgba(0,0,0,0.25);
+      border: none; color: rgba(255,255,255,0.7); font-size: 15px; line-height: 1;
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer; opacity: 0;
+      transition: opacity .12s; padding: 0;
+    }
+    .msg:hover .msg-del-btn { opacity: 1; }
+    .msg.theirs .msg-del-btn { background: rgba(255,255,255,0.12); }
+    .msg-deleted { opacity: 0.6; font-style: italic; }
+    .msg-deleted em { font-size: 13px; }
+    @media (max-width: 900px) {
+      /* On touch devices the button is always visible since there's no hover */
+      .msg-del-btn { opacity: 0.55; }
+    }
     .chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px; display: flex; flex-direction: column; gap: 8px; }
     .msg { max-width: 70%; padding: 9px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
     .msg.mine { align-self: flex-end; background: #3ea6ff; color: #0f0f0f; border-bottom-right-radius: 4px; }
@@ -1510,6 +1525,8 @@
         <div class="chat-header" id="chat-header" style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
           <button class="btn btn-ghost mobile-only" onclick="closeChatThread()" style="padding:4px 10px;">←</button>
           <span id="chat-header-name">Select a conversation</span>
+          <span style="flex:1"></span>
+          <button class="btn btn-ghost" id="chat-clear-btn" onclick="clearConversation()" title="Clear conversation" style="padding:4px 12px;display:none;">Clear</button>
        </div>
         <div id="chat-request-banner" style="display:none;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(62,166,255,0.08);font-size:13px;">
           <span id="chat-request-text"></span>
@@ -3080,6 +3097,7 @@ async function refreshThread(scroll) {
     const { otherName, messages, status, requesterId } = await api('/messages/' + encodeURIComponent(activeChatUid), { authRequired: true });
     activeChatStatus = status; activeChatRequester = requesterId;
     document.getElementById('chat-header-name').textContent = otherName;
+    document.getElementById('chat-clear-btn').style.display = '';
     const iAmReceiver = requesterId && requesterId !== currentUser?.uid;
     const banner = document.getElementById('chat-request-banner');
     if (status === 'pending' && iAmReceiver) {
@@ -3092,12 +3110,52 @@ async function refreshThread(scroll) {
     }
     const box = document.getElementById('chat-msgs');
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
-    box.innerHTML = messages.length ? messages.map(m => `
-      <div class="msg ${m.senderId === currentUser?.uid ? 'mine' : 'theirs'}">
+    box.innerHTML = messages.length ? messages.map(m => {
+      const mine = m.senderId === currentUser?.uid;
+      if (m.deleted) {
+        return `<div class="msg ${mine ? 'mine' : 'theirs'} msg-deleted"><em>This message was deleted</em><span class="m-time">${timeAgo(m.createdAt)}</span></div>`;
+      }
+      return `
+      <div class="msg ${mine ? 'mine' : 'theirs'}" oncontextmenu="event.preventDefault(); msgMenu('${esc(m.id)}', ${mine})">
+        <button class="msg-del-btn" onclick="msgMenu('${esc(m.id)}', ${mine})" title="Delete">⋯</button>
         ${m.imageUrl ? `<img class="msg-photo" src="${esc(m.imageUrl)}" loading="lazy" onclick="openLightbox(this.src)" alt="Photo" />` : ''}${m.text ? esc(m.text) : ''}<span class="m-time">${timeAgo(m.createdAt)}</span>
-     </div>`).join('')
+     </div>`;
+    }).join('')
       : '<div class="chat-empty">Say hello — messages are private between you two.</div>';
     if (scroll || atBottom) box.scrollTop = box.scrollHeight;
+  } catch (e) { showToast(e.message, true); }
+}
+
+// ─── Message deletion ───────────────────────────────────────────
+function msgMenu(messageId, mine) {
+  // Sender: unsend for everyone, or delete for me. Recipient: delete for me only.
+  if (mine) {
+    const choice = confirm('Unsend this message for everyone?\n\nOK = Unsend for everyone\nCancel = choose "delete for me only"');
+    if (choice) return deleteMsg(messageId, 'everyone');
+    if (confirm('Delete this message from your view only?')) return deleteMsg(messageId, 'me');
+  } else {
+    if (confirm('Delete this message from your view? (The sender will still see it.)')) {
+      return deleteMsg(messageId, 'me');
+    }
+  }
+}
+
+async function deleteMsg(messageId, mode) {
+  try {
+    await api(`/messages/${encodeURIComponent(activeChatUid)}/${encodeURIComponent(messageId)}?mode=${mode}`, {
+      method: 'DELETE', authRequired: true,
+    });
+    refreshThread(false);
+  } catch (e) { showToast(e.message, true); }
+}
+
+async function clearConversation() {
+  if (!activeChatUid) return;
+  if (!confirm('Clear this whole conversation from your view? The other person keeps their copy.')) return;
+  try {
+    await api('/messages/' + encodeURIComponent(activeChatUid), { method: 'DELETE', authRequired: true });
+    refreshThread(false);
+    showToast('Conversation cleared');
   } catch (e) { showToast(e.message, true); }
 }
 

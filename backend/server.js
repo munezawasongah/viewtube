@@ -1456,7 +1456,15 @@ app.get('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
     otherName: otherDoc.exists ? otherDoc.data().displayName || 'User' : 'User',
     status: convo ? (convo.status || 'accepted') : 'new',
     requesterId: convo?.requesterId || null,
-    messages: snap.docs.map(d => { const m = { id: d.id, ...d.data() }; m.imageUrl = fixImg(m.imageUrl); return m; }),
+    messages: snap.docs
+      .filter(d => !(d.data().hiddenFor || []).includes(req.user.uid))
+      .map(d => {
+        const m = { id: d.id, ...d.data() };
+        if (m.deleted) { m.text = ''; m.imageUrl = null; }
+        else { m.imageUrl = fixImg(m.imageUrl); }
+        delete m.hiddenFor;
+        return m;
+      }),
   });
 }));
 
@@ -1526,6 +1534,47 @@ app.post('/messages/:otherUid', authMiddleware, writeLimiter, wrap(async (req, r
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   res.json({ id: ref.id });
+}));
+
+// Delete a message. Sender can unsend (removes for everyone). Recipient can hide
+// it from their own view only — you can't erase what someone else sent from their side.
+app.delete('/messages/:otherUid/:messageId', authMiddleware, wrap(async (req, res) => {
+  const { otherUid, messageId } = req.params;
+  const id = convoId(req.user.uid, otherUid);
+  const ref = db.collection('messages').doc(messageId);
+  const doc = await ref.get();
+  if (!doc.exists || doc.data().conversationId !== id) {
+    return res.status(404).json({ error: 'Message not found' });
+  }
+  const msg = doc.data();
+  const mode = req.query.mode === 'me' ? 'me' : 'everyone';
+
+  if (mode === 'everyone') {
+    // Only the sender may unsend for everyone
+    if (msg.senderId !== req.user.uid) {
+      return res.status(403).json({ error: 'You can only unsend your own messages' });
+    }
+    await ref.update({
+      text: '',
+      imageUrl: null,
+      deleted: true,
+      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } else {
+    // Hide from just this user's view — record who hid it, keep the message for the other
+    await ref.update({ hiddenFor: admin.firestore.FieldValue.arrayUnion(req.user.uid) });
+  }
+  res.json({ ok: true, mode });
+}));
+
+// Clear an entire conversation from the current user's view only
+app.delete('/messages/:otherUid', authMiddleware, wrap(async (req, res) => {
+  const id = convoId(req.user.uid, req.params.otherUid);
+  const snap = await db.collection('messages').where('conversationId', '==', id).limit(500).get();
+  const batch = db.batch();
+  snap.docs.forEach(d => batch.update(d.ref, { hiddenFor: admin.firestore.FieldValue.arrayUnion(req.user.uid) }));
+  await batch.commit().catch(() => {});
+  res.json({ ok: true, cleared: snap.size });
 }));
 
 // Accept or decline a message request (receiver only)
