@@ -1606,7 +1606,14 @@ app.post('/live/start', authMiddleware, writeLimiter, wrap(async (req, res) => {
     .where('status', 'in', ['created', 'live']).limit(1).get();
   if (!existing.empty) {
     const s = existing.docs[0];
-    return res.json({ id: s.id, ...s.data(), resumed: true });
+    const data = s.data();
+    // Only resume a stream that actually has streaming URLs. Older records created
+    // before WebRTC support have no webRTCUrl and would break camera broadcasting —
+    // clear those out and fall through to create a fresh Cloudflare live input.
+    if (data.webRTCUrl) {
+      return res.json({ id: s.id, ...data, resumed: true });
+    }
+    await db.collection('streams').doc(s.id).update({ status: 'ended' }).catch(() => {});
   }
   const cfRes = await axios.post(CF_LIVE_BASE, {
     meta: { name: title, creatorId: req.user.uid },
