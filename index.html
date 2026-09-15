@@ -2347,7 +2347,7 @@ function loadPageData(name) {
   if (name === 'advertise') loadAdEnquiries();
   if (name === 'trending') { switchTrendingTab(trendingTab || 'videos'); loadTrending(); }
   if (name === 'subscriptions') loadSubscriptions();
-  if (name === 'channel') loadChannel(currentUser?.uid);
+  if (name === 'channel') loadChannel(pendingChannelUid || currentUser?.uid);
   if (name === 'studio') loadStudio();
   if (name === 'history') renderHistory();
 }
@@ -2789,7 +2789,13 @@ function resetUploadUI() {
 
 // ─── Channel ────────────────────────────────────────────────────
 let viewingChannelId = null;
-function loadChannelPage(uid) { showPage('channel'); loadChannel(uid); }
+let pendingChannelUid = null;
+function loadChannelPage(uid) {
+  pendingChannelUid = uid || null;   // renderPage reads this so it doesn't force your own channel
+  showPage('channel');
+  loadChannel(uid);
+  pendingChannelUid = null;
+}
 
 async function loadChannel(uid) {
   viewingChannelUid = uid || currentUser?.uid || null;
@@ -2799,15 +2805,7 @@ async function loadChannel(uid) {
   const isMine = currentUser && uid === currentUser.uid;
   document.getElementById('edit-profile-btn').style.display = isMine ? '' : 'none';
   document.getElementById('channel-subscribe-btn').style.display = isMine ? 'none' : '';
-  // Tip button shows only when the creator enabled tips and it's not your own channel
-  const tipBtn = document.getElementById('channel-tip-btn');
-  if (!isMine && ch.tip && ch.tip.enabled) {
-    tipBtn.style.display = '';
-    viewingChannelTip = ch.tip;
-    viewingChannelName = ch.displayName;
-  } else {
-    tipBtn.style.display = 'none';
-  }
+  document.getElementById('channel-tip-btn').style.display = 'none';  // set after ch loads
   const grid = document.getElementById('channel-grid');
   grid.innerHTML = skeletons(4);
   document.getElementById('channel-empty').style.display = 'none';
@@ -2817,6 +2815,14 @@ async function loadChannel(uid) {
       api('/channels/' + encodeURIComponent(uid) + '/videos'),
     ]);
     document.getElementById('channel-name').textContent = ch.displayName;
+    // Tip button: only when the creator enabled tips and it's not your own channel
+    if (!isMine && ch.tip && ch.tip.enabled) {
+      document.getElementById('channel-tip-btn').style.display = '';
+      viewingChannelTip = ch.tip;
+      viewingChannelName = ch.displayName;
+    } else {
+      document.getElementById('channel-tip-btn').style.display = 'none';
+    }
     document.getElementById('channel-avatar').innerHTML = avatarHTML(ch.photoURL, ch.displayName);
     const banner = document.querySelector('#page-channel .channel-banner');
     if (ch.coverURL) { banner.classList.add('has-cover'); banner.style.backgroundImage = `url('${ch.coverURL}')`; }
