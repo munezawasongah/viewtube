@@ -3798,9 +3798,38 @@ function toggleNotifPanel() {
 function openNotification(type, refId) {
   document.getElementById('notif-panel').style.display = 'none';
   closeNotifSheet();
-  if (type === 'comment' || type === 'tip') { if (refId) openVideo(refId); }
-  else if (type === 'subscriber') { showPage('channel'); }
-  else if (type === 'ad_enquiry') { showPage('advertise'); }
+  switch (type) {
+    case 'comment':
+    case 'tip':
+      // refId is a video id
+      if (refId) openVideo(refId); else showPage('channel');
+      break;
+    case 'subscriber':
+      // refId is the new subscriber's uid — open their channel
+      if (refId) loadChannelPage(refId); else showPage('channel');
+      break;
+    case 'live':
+      // refId is the creator's uid — open their channel to watch the stream
+      if (refId) loadChannelPage(refId); else showPage('home');
+      break;
+    case 'post':
+    case 'post_comment':
+    case 'post_share':
+    case 'mention':
+      // refId is a post id — open the community feed where the post lives
+      showPage('community');
+      break;
+    case 'message':
+      // refId is the sender's uid — open that conversation
+      if (refId) { showPage('messages'); setTimeout(() => openDM(refId), 250); }
+      else showPage('messages');
+      break;
+    case 'ad_enquiry':
+      showPage('advertise');
+      break;
+    default:
+      showPage('home');
+  }
 }
 
 // ─── Images: compress in-browser, then upload ───────────────────

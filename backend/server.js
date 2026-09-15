@@ -1108,7 +1108,7 @@ app.post('/channels/:uid/subscribe', authMiddleware, writeLimiter, wrap(async (r
   });
   if (result) {
     const subDoc = await db.collection('users').doc(req.user.uid).get();
-    notify(req.params.uid, 'subscriber', `${subDoc.data()?.displayName || 'Someone'} subscribed to your channel 🎉`, req.user.uid);
+    notify(req.params.uid, 'subscriber', `${subDoc.data()?.displayName || 'Someone'} subscribed to your channel`, req.user.uid);
   }
   res.json({ subscribed: result });
 }));
@@ -1275,7 +1275,7 @@ app.post('/mpesa/callback', wrap(async (req, res) => {
         [field]: admin.firestore.FieldValue.increment(data.amount),
         total: admin.firestore.FieldValue.increment(data.amount),
       }, { merge: true });
-      notify(creatorId, 'tip', `You received a KSh ${data.amount} ${coll === 'tips' ? 'tip' : 'membership payment'} 🎉`, data.videoId || null);
+      notify(creatorId, 'tip', `You received a KSh ${data.amount} ${coll === 'tips' ? 'tip' : 'membership payment'}`, data.videoId || null);
     }
     break;
   }
@@ -1650,7 +1650,21 @@ app.get('/live/:id/status', authMiddleware, wrap(async (req, res) => {
   if (s.uploaderId !== req.user.uid) return res.status(403).json({ error: 'Forbidden' });
   const cfRes = await axios.get(`${CF_LIVE_BASE}/${encodeURIComponent(s.liveInputUid)}`, { headers: cfHeaders });
   const state = cfRes.data.result?.status?.current?.state || 'disconnected';
-  if (state === 'connected' && s.status !== 'live') await ref.update({ status: 'live', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+  if (state === 'connected' && s.status !== 'live') {
+    await ref.update({ status: 'live', startedAt: admin.firestore.FieldValue.serverTimestamp() });
+    // Notify subscribers the first time this stream goes live (guarded so it fires once)
+    if (!s.notifiedLive) {
+      ref.update({ notifiedLive: true }).catch(() => {});
+      db.collection('subscriptions').where('channelId', '==', s.uploaderId).limit(500).get()
+        .then(subs => subs.docs.forEach(d => {
+          const sub = d.data().subscriberId;
+          if (sub && sub !== s.uploaderId) {
+            notify(sub, 'live', `${s.channelName || 'A creator'} is live now: ${s.title || 'Live stream'}`, s.uploaderId);
+          }
+        }))
+        .catch(() => {});
+    }
+  }
   if (state !== 'connected' && s.status === 'live') await ref.update({ status: 'ended', endedAt: admin.firestore.FieldValue.serverTimestamp() });
   res.json({ state, status: state === 'connected' ? 'live' : s.status });
 }));
